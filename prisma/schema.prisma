@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum PersonStatus {
+  active
+  terminated
+}
+
+model Person {
+  id         String       @id @default(cuid())
+  employeeId String       @unique
+  name       String
+  status     PersonStatus @default(active)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  records AttendanceRecord[]
+
+  @@map("person")
+}
+
+model AttendanceCategory {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  records AttendanceRecord[]
+
+  @@map("attendance_category")
+}
+
+enum FormStatus {
+  draft
+  pending_review
+  approved
+  rejected
+  voided
+}
+
+model AttendanceForm {
+  id       String     @id @default(cuid())
+  date     String // YYYY-MM-DD
+  status   FormStatus @default(draft)
+  version  Int        @default(1)
+
+  // Version chain for void-and-resubmit (AC-10): previous form is kept, marked "voided",
+  // and linked forward to the new form that supersedes it.
+  previousFormId String?         @unique
+  previousForm   AttendanceForm? @relation("FormVersionChain", fields: [previousFormId], references: [id])
+  nextForm       AttendanceForm? @relation("FormVersionChain")
+
+  // Non-null only while this form is the live (non-voided) chain head for `date`;
+  // set to null on void so a new head can reuse the date without violating the DB unique
+  // constraint required by NFR-1 (SQLite/Postgres unique indexes allow multiple NULLs).
+  activeDateKey String? @unique
+
+  rejectReason String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  records   AttendanceRecord[]
+  auditLogs AuditLog[]
+
+  @@map("attendance_form")
+}
+
+model AttendanceRecord {
+  id         String              @id @default(cuid())
+  formId     String
+  form       AttendanceForm      @relation(fields: [formId], references: [id])
+  employeeId String
+  person     Person              @relation(fields: [employeeId], references: [employeeId])
+  date       String // denormalized from form.date, needed for the active-record uniqueness key
+  categoryId String?
+  category   AttendanceCategory? @relation(fields: [categoryId], references: [id])
+  note       String?
+
+  voided Boolean @default(false)
+
+  // "${employeeId}:${date}" while voided = false, else null.
+  // Enforces NFR-1 / AC-8 (one active record per employeeId+date) at the DB layer while still
+  // allowing AC-10's voided history rows to share the same employeeId+date.
+  activeKey String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, formId])
+  @@map("attendance_record")
+}
+
+model AuditLog {
+  id           String         @id @default(cuid())
+  formId       String
+  form         AttendanceForm @relation(fields: [formId], references: [id])
+  action       String // created | saved_draft | submitted | approved | rejected | voided_resubmitted
+  operatorName String
+  note         String?
+  createdAt    DateTime       @default(now())
+
+  @@map("audit_log")
+}
