@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { authFetch } from "@/lib/auth-client";
 
 type Category = {
   id: string;
@@ -19,8 +20,8 @@ export default function CategoriesPage() {
   const [loading, setLoading] = useState(false);
 
   async function load() {
-    const res = await fetch("/api/categories");
-    setCategories(await res.json());
+    const res = await authFetch("/api/categories");
+    if (res.ok) setCategories(await res.json());
   }
 
   useEffect(() => {
@@ -32,7 +33,7 @@ export default function CategoriesPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/categories", {
+      const res = await authFetch("/api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code, name, sortOrder: Number(sortOrder) || 0 }),
@@ -51,7 +52,7 @@ export default function CategoriesPage() {
   }
 
   async function toggleActive(cat: Category) {
-    const res = await fetch(`/api/categories/${cat.id}`, {
+    const res = await authFetch(`/api/categories/${cat.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isActive: !cat.isActive }),

@@ -8,7 +8,9 @@ const path = require("node:path");
 const fs = require("node:fs");
 const Database = require("better-sqlite3");
 
-const dbPath = path.join(__dirname, "..", "prisma", "dev.db");
+const dbPath = process.env.MIGRATE_DB_PATH
+  ? path.resolve(process.env.MIGRATE_DB_PATH)
+  : path.join(__dirname, "..", "prisma", "dev.db");
 const migrationsDir = path.join(__dirname, "..", "prisma", "migrations");
 
 const db = new Database(dbPath);

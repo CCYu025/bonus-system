@@ -3,6 +3,7 @@
 import { Suspense, use, useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { authFetch } from "@/lib/auth-client";
 
 type Category = {
   id: string;
@@ -84,13 +85,12 @@ function FormDetailPageInner({
   const [edits, setEdits] = useState<
     Record<string, { categoryId: string | null; note: string }>
   >({});
-  const [operatorName, setOperatorName] = useState("");
   const [rejectReason, setRejectReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/forms/${id}`);
+    const res = await authFetch(`/api/forms/${id}`);
     if (!res.ok) {
       setError("找不到表單");
       return;
@@ -100,8 +100,8 @@ function FormDetailPageInner({
 
   useEffect(() => {
     load();
-    fetch("/api/categories?activeOnly=true")
-      .then((r) => r.json())
+    authFetch("/api/categories?activeOnly=true")
+      .then((r) => (r.ok ? r.json() : []))
       .then(setCategories);
   }, [load]);
 
@@ -129,10 +129,6 @@ function FormDetailPageInner({
   }
 
   async function handleSave() {
-    if (!operatorName.trim()) {
-      setError("請輸入操作者姓名");
-      return;
-    }
     const changes = Object.entries(edits).map(([employeeId, v]) => ({
       employeeId,
       categoryId: v.categoryId,
@@ -145,10 +141,10 @@ function FormDetailPageInner({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/forms/${id}/records`, {
+      const res = await authFetch(`/api/forms/${id}/records`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ operatorName, changes }),
+        body: JSON.stringify({ changes }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "儲存失敗");
@@ -165,17 +161,13 @@ function FormDetailPageInner({
     action: "submit" | "approve" | "reject" | "void",
     extra?: Record<string, unknown>
   ) {
-    if (!operatorName.trim()) {
-      setError("請輸入操作者姓名");
-      return;
-    }
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/forms/${id}/${action}`, {
+      const res = await authFetch(`/api/forms/${id}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ operatorName, ...extra }),
+        body: JSON.stringify({ ...extra }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "操作失敗");
@@ -207,7 +199,7 @@ function FormDetailPageInner({
         </span>
       </h1>
       <p className="hint">
-        {isSupervisor ? "課長模式（核准／退回）" : "班長模式（填寫／送審）"} ·{" "}
+        {isSupervisor ? "開發者模式（核准／退回）" : "班長模式（填寫／送審）"} ·{" "}
         <Link href={isSupervisor ? "/forms?mode=supervisor" : "/forms"}>
           返回列表
         </Link>
@@ -231,20 +223,15 @@ function FormDetailPageInner({
 
       {error && <div className="error-box">{error}</div>}
 
-      <div className="inline-form">
-        <input
-          placeholder="操作者姓名"
-          value={operatorName}
-          onChange={(e) => setOperatorName(e.target.value)}
-        />
-        {!editable && form.status !== "voided" && (
+      {!editable && form.status !== "voided" && (
+        <div className="inline-form">
           <span className="hint">
             {form.status === "approved"
               ? "已核准表單不可直接修改，如需更正請使用作廢重審"
-              : "待審中，等候課長審核"}
+              : "待審中，等候開發者審核"}
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       <p className="hint">
         已填 {filledCount} / {form.records.length} 人

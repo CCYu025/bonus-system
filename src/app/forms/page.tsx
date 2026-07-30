@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { authFetch } from "@/lib/auth-client";
 
 type FormListItem = {
   id: string;
@@ -35,14 +36,13 @@ function FormsPageInner() {
 
   const [forms, setForms] = useState<FormListItem[]>([]);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [operatorName, setOperatorName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function load() {
     const qs = isSupervisor ? "?status=pending_review" : "";
-    const res = await fetch(`/api/forms${qs}`);
-    setForms(await res.json());
+    const res = await authFetch(`/api/forms${qs}`);
+    if (res.ok) setForms(await res.json());
   }
 
   useEffect(() => {
@@ -55,10 +55,10 @@ function FormsPageInner() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/forms", {
+      const res = await authFetch("/api/forms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, operatorName }),
+        body: JSON.stringify({ date }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "開啟表單失敗");
@@ -72,7 +72,7 @@ function FormsPageInner() {
 
   return (
     <div className="container">
-      <h1>{isSupervisor ? "待審核表單（課長模式）" : "出勤表單（班長模式）"}</h1>
+      <h1>{isSupervisor ? "待審核表單（開發者模式）" : "出勤表單（班長模式）"}</h1>
 
       {isSupervisor ? (
         <p className="hint">
@@ -81,7 +81,7 @@ function FormsPageInner() {
       ) : (
         <>
           <p className="hint">
-            選擇日期並輸入你的姓名作為本次填寫階段的操作者身分；若該日表單已存在，將直接開啟既有表單。
+            選擇日期；若該日表單已存在，將直接開啟既有表單。操作者身分將自動取自你的登入帳號。
           </p>
           {error && <div className="error-box">{error}</div>}
           <form className="inline-form" onSubmit={handleOpenOrCreate}>
@@ -89,12 +89,6 @@ function FormsPageInner() {
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              required
-            />
-            <input
-              placeholder="操作者姓名"
-              value={operatorName}
-              onChange={(e) => setOperatorName(e.target.value)}
               required
             />
             <button type="submit" disabled={loading}>

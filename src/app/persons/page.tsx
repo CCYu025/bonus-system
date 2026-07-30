@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { authFetch } from "@/lib/auth-client";
 
 type Person = {
   id: string;
@@ -17,8 +18,8 @@ export default function PersonsPage() {
   const [loading, setLoading] = useState(false);
 
   async function load() {
-    const res = await fetch("/api/persons");
-    setPersons(await res.json());
+    const res = await authFetch("/api/persons");
+    if (res.ok) setPersons(await res.json());
   }
 
   useEffect(() => {
@@ -30,7 +31,7 @@ export default function PersonsPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/persons", {
+      const res = await authFetch("/api/persons", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ employeeId, name }),
@@ -49,7 +50,7 @@ export default function PersonsPage() {
 
   async function handleDelete(employeeId: string) {
     if (!confirm(`確定要將工號 ${employeeId} 設為離職嗎？`)) return;
-    const res = await fetch(`/api/persons/${employeeId}`, { method: "DELETE" });
+    const res = await authFetch(`/api/persons/${employeeId}`, { method: "DELETE" });
     if (!res.ok) {
       const data = await res.json();
       alert(data.error ?? "刪除失敗");
