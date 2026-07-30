@@ -1,6 +1,6 @@
 # Testing
 
-Read this before adding any new `lib/*.ts` logic, a new API route, or a schema change — including the search/query feature and the form-scoring-fields feature.
+Read this before adding any new `lib/*.ts` logic, a new API route, or a schema change — including the still-upcoming form-scoring-fields feature.
 
 ## Runner & where tests live
 
@@ -38,9 +38,11 @@ describe("...", () => {
 
 See `src/lib/accounts.test.ts` for a worked example (account create/authenticate, deactivation cutting off sessions, rename not rewriting audit log snapshots).
 
-## Adding tests for the search/query feature
+## The attendance-query feature (implemented — `src/lib/attendance-query.ts`)
 
-The highest-risk logic to get wrong is exactly what was discussed when designing it: "only approved data, and at most one row per date." Test this directly against fixture data that includes a void/resubmit version chain, not just a single flat form per date — e.g. seed a date with an old `voided` form plus a newer `approved` one (mirrors the manual verification already done for this feature; see chat history / `docs/database.md`) and assert the query returns exactly the approved one, not both, and not the voided one. Also cover a date that's still `draft`/`pending_review` (no approved form yet) returning nothing for that date.
+`queryAttendanceByMonth(month)` is the query layer: given `"YYYY-MM"`, it returns every current-version *approved* record in that month. The highest-risk logic here is exactly what was flagged before this was built: "only approved data, and at most one row per date." `src/lib/attendance-query.test.ts` tests this directly against fixture data that includes a void/resubmit version chain (an old `voided` form plus a newer `approved` one for the same date) and asserts the query returns exactly the approved one — see that file for the worked example. It also covers a date still `draft`/`pending_review` (excluded), a terminated person's records within the month (still included), and month-boundary exclusion (adjacent months' dates must not leak in via the `date` string's `startsWith` filter).
+
+The presentation-layer filtering (`src/app/attendance-query/filters.ts`) — deriving person/category dropdown options from the fetched month's rows, filtering rows by exact person/category match, and computing the category subtotal — is pure logic with no DB dependency, so it's tested separately in `filters.test.ts` without `resetDb()`/fixtures, following the same colocated-test convention.
 
 ## Adding tests for form-scoring fields
 
