@@ -34,6 +34,7 @@ export default function TopNav() {
       <Link href="/persons">人員主檔</Link>
       <Link href="/categories">出勤類別</Link>
       <Link href="/forms">出勤表單（班長）</Link>
+      <Link href="/attendance-query">出勤查詢</Link>
       {me?.role === "developer" && (
         <>
           <Link href="/forms?mode=supervisor">待審核（開發者）</Link>
