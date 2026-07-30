@@ -46,6 +46,10 @@ next-env.d.ts
 /prisma/dev.db
 /prisma/dev.db-journal
 
+# sqlite test database (rebuilt from scratch by test/global-setup.ts on every `npm test`)
+/prisma/test.db
+/prisma/test.db-journal
+
 # third-party agent skill docs auto-installed by `prisma init` (regenerate via prisma CLI)
 /.claude/skills
 /.agents
