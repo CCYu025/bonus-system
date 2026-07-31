@@ -44,6 +44,12 @@ See `src/lib/accounts.test.ts` for a worked example (account create/authenticate
 
 The presentation-layer filtering (`src/app/attendance-query/filters.ts`) — deriving person/category dropdown options from the fetched month's rows, filtering rows by exact person/category match, and computing the category subtotal — is pure logic with no DB dependency, so it's tested separately in `filters.test.ts` without `resetDb()`/fixtures, following the same colocated-test convention.
 
+## The exclude-unfilled feature (implemented — `src/lib/attendance-records.ts`)
+
+`isFilledRecord()` is a one-line shared predicate (`categoryId !== null`) used by both `getFormWithRecords()` (`forms.ts`) and `queryAttendanceByMonth()` (`attendance-query.ts`) to hide unfilled records from what's returned — see `docs/2026-07-31-attendance-exclude-unfilled/spec.md` for why (submit/approve are intentionally not blocked by incomplete data; the DB rows are never deleted, only filtered out of these two read paths).
+
+The highest-risk part isn't the predicate itself, it's **which status it's applied to**. `getFormWithRecords()` must only filter when `status === "pending_review"` — `draft`/`rejected` have to keep returning the full list, or the foreman loses the ability to see and fill in exactly the rows that need fixing. When testing a fix or change here, cover both sides symmetrically: a form left with an unfilled person after **rejection** and after **void-and-resubmit** should both (a) show the unfilled person again once back in an editable status, and (b) show up correctly in `queryAttendanceByMonth` once filled in and re-approved. An early review of this feature caught exactly this asymmetry — the reject path only had case (a) covered, not (b) — see `src/lib/attendance-query.test.ts`'s `'includes a person after their previously-未填 record is filled in following a rejection'` for the case that closed the gap.
+
 ## Adding tests for form-scoring fields
 
 If this changes `prisma/schema.prisma`, write the migration first per `docs/database.md`, then:

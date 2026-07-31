@@ -21,6 +21,8 @@ The installed Next.js version has breaking changes from what training data assum
 
 `AttendanceForm.status`: `draft → pending_review → approved | rejected`, and separately `approved → voided` (which spawns a new `draft` — see `docs/database.md`'s version-chain section). `EDITABLE_STATUSES` in `src/lib/forms.ts` (`draft`, `rejected`) gates which states allow record edits; check there before assuming a status allows a given mutation.
 
+`getFormWithRecords()` (`src/lib/forms.ts`) filters out unfilled records (`categoryId === null`, via `src/lib/attendance-records.ts`'s `isFilledRecord`) from what it returns, but **only when `status === "pending_review"`**. Submit/approve are deliberately not blocked by incomplete records (see `docs/2026-07-31-attendance-exclude-unfilled/spec.md`), so an approved form can still contain unfilled rows in the DB — `draft`/`rejected` must keep returning the full list, or a foreman editing/fixing a form loses the ability to see and fill in the very rows that need it.
+
 ## Roles surfaced in the UI
 
 `src/app/top-nav.tsx` fetches `/api/auth/me` on every route change to decide which nav links to show (`developer`-only links: supervisor approval queue, account management). This is UX only — it does not enforce anything; the actual enforcement is the `requireRole` call in the corresponding API route (see `docs/auth.md`).
