@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { AppError } from "@/lib/errors";
+import { isFilledRecord } from "@/lib/attendance-records";
 
 const MONTH_PATTERN = /^\d{4}-\d{2}$/;
 
@@ -39,8 +40,10 @@ export async function queryAttendanceByMonth(month: string): Promise<AttendanceQ
     orderBy: { date: "asc" },
   });
 
+  // T-2 (spec 2026-07-31-attendance-exclude-unfilled)：未填（categoryId 為
+  // null）的紀錄不出現在查詢結果，資料庫紀錄本身不受影響，僅此讀取層過濾。
   return forms.flatMap((form) =>
-    form.records.map((r) => ({
+    form.records.filter(isFilledRecord).map((r) => ({
       date: form.date,
       employeeId: r.employeeId,
       personName: r.person.name,

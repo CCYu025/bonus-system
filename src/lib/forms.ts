@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { FormStatus } from "@/generated/prisma/client";
 import { writeAuditLog } from "@/lib/audit";
 import { AppError, isPrismaUniqueConstraintError } from "@/lib/errors";
+import { isFilledRecord } from "@/lib/attendance-records";
 
 // Statuses in which a form's records may still be edited (FR-7/AC-9, FR-5 reject flow).
 const EDITABLE_STATUSES = ["draft", "rejected"] as const;
@@ -15,8 +16,11 @@ function assertEditable(status: string) {
   }
 }
 
-export function getFormWithRecords(formId: string) {
-  return prisma.attendanceForm.findUnique({
+// 待審核（pending_review）狀態的表單，回傳給待審核詳情畫面的人員清單排除未填人員
+// （AC-1）；draft／rejected 等可編輯狀態維持回傳完整清單，確保班長能看到並補上
+// 未填人員（AC-5／AC-6 的補救流程依賴這裡不能把未填的人員濾掉）。
+export async function getFormWithRecords(formId: string) {
+  const form = await prisma.attendanceForm.findUnique({
     where: { id: formId },
     include: {
       records: {
@@ -28,6 +32,8 @@ export function getFormWithRecords(formId: string) {
       nextForm: true,
     },
   });
+  if (!form || form.status !== "pending_review") return form;
+  return { ...form, records: form.records.filter(isFilledRecord) };
 }
 
 export function findActiveFormByDate(date: string) {

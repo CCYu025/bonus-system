@@ -4,6 +4,7 @@ import { queryAttendanceByMonth } from "./attendance-query";
 import {
   approveForm,
   createDailyForm,
+  rejectForm,
   saveFormRecords,
   submitForm,
   voidAndResubmitForm,
@@ -111,5 +112,76 @@ describe("queryAttendanceByMonth", () => {
     await expect(queryAttendanceByMonth("")).rejects.toMatchObject({ status: 400 });
     await expect(queryAttendanceByMonth("2026-1")).rejects.toMatchObject({ status: 400 });
     await expect(queryAttendanceByMonth("2026-01-01")).rejects.toMatchObject({ status: 400 });
+  });
+
+  // AC-2 (spec 2026-07-31-attendance-exclude-unfilled): an approved form can still
+  // contain 未填 people (submit/approve are not blocked by completeness); those
+  // records must not show up in the query results or count toward any subtotal.
+  it("excludes 未填 records from an approved form's results", async () => {
+    await seedPerson("E001", "王小明");
+    await seedPerson("E002", "李小華");
+    const category = await seedCategory();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+    await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id },
+    ]);
+    // E002 stays 未填
+    await submitForm(form.id, "班長甲");
+    await approveForm(form.id, "主管");
+
+    const result = await queryAttendanceByMonth("2026-01");
+    expect(result.map((r) => r.employeeId)).toEqual(["E001"]);
+  });
+
+  // AC-6: a person left 未填 in an approved form, then filled in after a
+  // void-and-resubmit cycle, must show up normally once re-approved.
+  it("includes a person after their previously-未填 record is filled in via void-and-resubmit", async () => {
+    await seedPerson("E001", "王小明");
+    await seedPerson("E002", "李小華");
+    const category = await seedCategory();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+    await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id },
+    ]);
+    // E002 stays 未填, but the form still gets submitted and approved
+    await submitForm(form.id, "班長甲");
+    const approved = await approveForm(form.id, "主管");
+
+    expect((await queryAttendanceByMonth("2026-01")).map((r) => r.employeeId)).toEqual(["E001"]);
+
+    const reviewed = await voidAndResubmitForm(approved!.id, "班長甲");
+    await saveFormRecords(reviewed!.id, "班長甲", [
+      { employeeId: "E002", categoryId: category.id },
+    ]);
+    await submitForm(reviewed!.id, "班長甲");
+    await approveForm(reviewed!.id, "主管");
+
+    const result = await queryAttendanceByMonth("2026-01");
+    expect(result.map((r) => r.employeeId).sort()).toEqual(["E001", "E002"]);
+  });
+
+  // AC-5: a person left 未填 in a form that gets rejected, then filled in after
+  // rejection and resubmitted, must show up normally once approved — the
+  // reject-path counterpart to the void-and-resubmit test above.
+  it("includes a person after their previously-未填 record is filled in following a rejection", async () => {
+    await seedPerson("E001", "王小明");
+    await seedPerson("E002", "李小華");
+    const category = await seedCategory();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+    await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id },
+    ]);
+    // E002 stays 未填 through the first submit/reject cycle
+    await submitForm(form.id, "班長甲");
+    await rejectForm(form.id, "主管", "E002 尚未填寫");
+
+    await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E002", categoryId: category.id },
+    ]);
+    await submitForm(form.id, "班長甲");
+    await approveForm(form.id, "主管");
+
+    const result = await queryAttendanceByMonth("2026-01");
+    expect(result.map((r) => r.employeeId).sort()).toEqual(["E001", "E002"]);
   });
 });

@@ -4,6 +4,7 @@ import {
   approveForm,
   createDailyForm,
   findActiveFormByDate,
+  getFormWithRecords,
   rejectForm,
   saveFormRecords,
   submitForm,
@@ -211,5 +212,97 @@ describe("voidAndResubmitForm", () => {
     const form = await createDailyForm("2026-01-01", "班長甲");
 
     await expect(voidAndResubmitForm(form.id, "班長甲")).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe("getFormWithRecords — 未填人員的顯示排除 (spec 2026-07-31-attendance-exclude-unfilled)", () => {
+  // AC-1
+  it("excludes unfilled records once the form is pending_review", async () => {
+    await seedPerson("E001", "王小明");
+    await seedPerson("E002", "李小華");
+    const category = await seedCategory();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+    await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id },
+    ]);
+    // E002 stays 未填 on purpose
+
+    const submitted = await submitForm(form.id, "班長甲");
+    expect(submitted?.records.map((r) => r.employeeId)).toEqual(["E001"]);
+
+    const reloaded = await getFormWithRecords(form.id);
+    expect(reloaded?.records.map((r) => r.employeeId)).toEqual(["E001"]);
+  });
+
+  // draft/rejected must keep showing unfilled records so they can still be edited
+  it("keeps unfilled records visible while the form is draft or rejected", async () => {
+    await seedPerson("E001", "王小明");
+    await seedPerson("E002", "李小華");
+    const category = await seedCategory();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+    await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id },
+    ]);
+
+    const draft = await getFormWithRecords(form.id);
+    expect(draft?.records.map((r) => r.employeeId).sort()).toEqual(["E001", "E002"]);
+
+    await submitForm(form.id, "班長甲");
+    const rejected = await rejectForm(form.id, "主管", "資料有誤");
+    expect(rejected?.records.map((r) => r.employeeId).sort()).toEqual(["E001", "E002"]);
+  });
+
+  // AC-5: after rejection, the previously-未填 person can still be filled in and resubmitted
+  it("lets a previously-未填 person be filled in after rejection and resubmitted", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+    await submitForm(form.id, "班長甲");
+    await rejectForm(form.id, "主管", "尚未填寫");
+
+    const filled = await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id },
+    ]);
+    expect(filled?.records.find((r) => r.employeeId === "E001")?.categoryId).toBe(category.id);
+
+    const resubmitted = await submitForm(form.id, "班長甲");
+    expect(resubmitted?.records.map((r) => r.employeeId)).toEqual(["E001"]);
+  });
+});
+
+describe("未填不阻擋送審／核准，資料不被刪除 (T-4, spec 2026-07-31-attendance-exclude-unfilled)", () => {
+  // AC-3
+  it("allows submit and approve even when some people are still 未填", async () => {
+    await seedPerson("E001", "王小明");
+    await seedPerson("E002", "李小華");
+    const category = await seedCategory();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+    await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id },
+    ]);
+    // E002 stays 未填
+
+    await expect(submitForm(form.id, "班長甲")).resolves.toMatchObject({ status: "pending_review" });
+    await expect(approveForm(form.id, "主管")).resolves.toMatchObject({ status: "approved" });
+  });
+
+  // AC-4
+  it("does not delete or modify the unfilled AttendanceRecord row after approval", async () => {
+    await seedPerson("E001", "王小明");
+    await seedPerson("E002", "李小華");
+    const category = await seedCategory();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+    await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id },
+    ]);
+    await submitForm(form.id, "班長甲");
+    await approveForm(form.id, "主管");
+
+    const records = await prisma.attendanceRecord.findMany({ where: { formId: form.id } });
+    expect(records).toHaveLength(2);
+    const e002 = records.find((r) => r.employeeId === "E002");
+    expect(e002).toBeDefined();
+    expect(e002?.categoryId).toBeNull();
+    expect(e002?.voided).toBe(false);
   });
 });
