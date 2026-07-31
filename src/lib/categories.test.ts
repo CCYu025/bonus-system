@@ -1,40 +1,28 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { resetDb } from "../../test/reset-db";
-import { createCategory, listCategories, setCategoryActive } from "./categories";
+import { listCategories, setCategoryActive } from "./categories";
+import { prisma } from "./prisma";
 
 afterEach(async () => {
   await resetDb();
 });
 
+function seedCategory(code: string, name: string, sortOrder = 0) {
+  return prisma.attendanceCategory.create({ data: { code, name, sortOrder } });
+}
+
 describe("categories", () => {
-  it("creates a category and lists it back", async () => {
-    await createCategory({ code: "OT", name: "加班" });
+  it("lists categories", async () => {
+    await seedCategory("OT", "加班");
 
     const categories = await listCategories();
     expect(categories.map((c) => c.code)).toContain("OT");
   });
 
-  it("rejects a duplicate code", async () => {
-    await createCategory({ code: "OT", name: "加班" });
-
-    await expect(createCategory({ code: "OT", name: "加班2" })).rejects.toMatchObject({
-      status: 409,
-    });
-  });
-
-  it("rejects a missing code or name", async () => {
-    await expect(createCategory({ code: "", name: "加班" })).rejects.toMatchObject({
-      status: 400,
-    });
-    await expect(createCategory({ code: "OT", name: "  " })).rejects.toMatchObject({
-      status: 400,
-    });
-  });
-
   it("listCategories(true) only returns active categories", async () => {
-    const category = await createCategory({ code: "OT", name: "加班" });
+    const category = await seedCategory("OT", "加班");
     await setCategoryActive(category.id, false);
-    await createCategory({ code: "SICK", name: "病假" });
+    await seedCategory("SICK", "病假");
 
     const active = await listCategories(true);
     expect(active.map((c) => c.code)).toEqual(["SICK"]);

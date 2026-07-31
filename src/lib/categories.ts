@@ -1,35 +1,13 @@
 import { prisma } from "@/lib/prisma";
-import { AppError, isPrismaUniqueConstraintError } from "@/lib/errors";
+import { AppError } from "@/lib/errors";
 
+// 出勤類別是固定於 scripts/seed.cjs 的設定資料，不開放透過畫面／API 新增
+// （新增類別等同新增一條計分規則的詞彙，須經 code review，不應是隨手操作）。
 export function listCategories(activeOnly = false) {
   return prisma.attendanceCategory.findMany({
     where: activeOnly ? { isActive: true } : undefined,
     orderBy: { sortOrder: "asc" },
   });
-}
-
-export async function createCategory(params: {
-  code: string;
-  name: string;
-  sortOrder?: number;
-}) {
-  if (!params.code.trim() || !params.name.trim()) {
-    throw new AppError(400, "業務代碼與名稱為必填");
-  }
-  try {
-    return await prisma.attendanceCategory.create({
-      data: {
-        code: params.code.trim(),
-        name: params.name.trim(),
-        sortOrder: params.sortOrder ?? 0,
-      },
-    });
-  } catch (err) {
-    if (isPrismaUniqueConstraintError(err)) {
-      throw new AppError(409, `業務代碼 ${params.code} 已存在`);
-    }
-    throw err;
-  }
 }
 
 export async function setCategoryActive(id: string, isActive: boolean) {

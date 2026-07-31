@@ -13,6 +13,7 @@ const categories = [
   { code: "PERSONAL_LEAVE", name: "事假", sortOrder: 2 },
   { code: "SICK_LEAVE", name: "病假", sortOrder: 3 },
   { code: "ANNUAL_LEAVE", name: "特休", sortOrder: 4 },
+  { code: "HOLIDAY_OVERTIME", name: "假日加班", sortOrder: 5 },
 ];
 
 const insertCategory = db.prepare(`

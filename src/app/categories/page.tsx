@@ -13,11 +13,6 @@ type Category = {
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
-  const [sortOrder, setSortOrder] = useState("0");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
   async function load() {
     const res = await authFetch("/api/categories");
@@ -27,29 +22,6 @@ export default function CategoriesPage() {
   useEffect(() => {
     load();
   }, []);
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      const res = await authFetch("/api/categories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, name, sortOrder: Number(sortOrder) || 0 }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "新增失敗");
-      setCode("");
-      setName("");
-      setSortOrder("0");
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "新增失敗");
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function toggleActive(cat: Category) {
     const res = await authFetch(`/api/categories/${cat.id}`, {
@@ -67,36 +39,10 @@ export default function CategoriesPage() {
 
   return (
     <div className="container">
-      <h1>出勤類別字典維護</h1>
+      <h1>出勤類別字典</h1>
       <p className="hint">
-        新增類別後立即出現於出勤登記表單下拉選單；停用不影響既有出勤紀錄的類別對應。
+        出勤類別為固定設定，如需新增或修改請聯繫系統維護人員調整設定；此畫面僅能停用／啟用既有類別，停用不影響既有出勤紀錄的類別對應。
       </p>
-
-      {error && <div className="error-box">{error}</div>}
-
-      <form className="inline-form" onSubmit={handleCreate}>
-        <input
-          placeholder="業務代碼"
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          required
-        />
-        <input
-          placeholder="名稱"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-        />
-        <input
-          placeholder="排序"
-          type="number"
-          value={sortOrder}
-          onChange={(e) => setSortOrder(e.target.value)}
-        />
-        <button type="submit" disabled={loading}>
-          新增類別
-        </button>
-      </form>
 
       <table>
         <thead>
