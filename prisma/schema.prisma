@@ -108,8 +108,12 @@ model AttendanceRecord {
   id         String              @id @default(cuid())
   formId     String
   form       AttendanceForm      @relation(fields: [formId], references: [id])
-  employeeId String
-  person     Person              @relation(fields: [employeeId], references: [employeeId])
+  // References Person's surrogate key (id), not the mutable employeeId business
+  // key — see docs/2026-07-31-attendance-record-personid-migration/spec.md.
+  // This lets Person.employeeId/name be corrected later without touching any
+  // AttendanceRecord row.
+  personId   String
+  person     Person              @relation(fields: [personId], references: [id])
   date       String // denormalized from form.date, needed for the active-record uniqueness key
   categoryId String?
   category   AttendanceCategory? @relation(fields: [categoryId], references: [id])
@@ -117,15 +121,15 @@ model AttendanceRecord {
 
   voided Boolean @default(false)
 
-  // "${employeeId}:${date}" while voided = false, else null.
-  // Enforces NFR-1 / AC-8 (one active record per employeeId+date) at the DB layer while still
-  // allowing AC-10's voided history rows to share the same employeeId+date.
+  // "${personId}:${date}" while voided = false, else null.
+  // Enforces NFR-1 / AC-8 (one active record per person+date) at the DB layer while still
+  // allowing AC-10's voided history rows to share the same person+date.
   activeKey String? @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([employeeId, formId])
+  @@unique([personId, formId])
   @@map("attendance_record")
 }
 

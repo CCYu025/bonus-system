@@ -34,7 +34,7 @@ export async function queryAttendanceByMonth(month: string): Promise<AttendanceQ
       records: {
         where: { voided: false },
         include: { person: true, category: true },
-        orderBy: { employeeId: "asc" },
+        orderBy: { person: { employeeId: "asc" } },
       },
     },
     orderBy: { date: "asc" },
@@ -42,10 +42,13 @@ export async function queryAttendanceByMonth(month: string): Promise<AttendanceQ
 
   // T-2 (spec 2026-07-31-attendance-exclude-unfilled)：未填（categoryId 為
   // null）的紀錄不出現在查詢結果，資料庫紀錄本身不受影響，僅此讀取層過濾。
+  // employeeId/personName 皆透過 personId 關聯即時讀取 Person 目前的資料
+  // （spec 2026-07-31-attendance-record-personid-migration FR-4），工號或
+  // 姓名更正後，歷史查詢會一致反映最新值。
   return forms.flatMap((form) =>
     form.records.filter(isFilledRecord).map((r) => ({
       date: form.date,
-      employeeId: r.employeeId,
+      employeeId: r.person.employeeId,
       personName: r.person.name,
       categoryId: r.categoryId,
       categoryName: r.category?.name ?? null,

@@ -185,3 +185,19 @@ describe("queryAttendanceByMonth", () => {
     expect(result.map((r) => r.employeeId).sort()).toEqual(["E001", "E002"]);
   });
 });
+
+describe("工號更正後查詢結果即時反映新值 (spec 2026-07-31-attendance-record-personid-migration AC-4)", () => {
+  it("shows the corrected employeeId for historical approved records", async () => {
+    const person = await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    await seedApprovedForm("2026-01-01", [{ employeeId: "E001", categoryId: category.id }]);
+
+    // AttendanceRecord is keyed by personId, not employeeId — correcting the
+    // typo on Person should not require touching any AttendanceRecord row.
+    await prisma.person.update({ where: { id: person.id }, data: { employeeId: "E999" } });
+
+    const result = await queryAttendanceByMonth("2026-01");
+    expect(result).toHaveLength(1);
+    expect(result[0].employeeId).toBe("E999");
+  });
+});

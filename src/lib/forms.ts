@@ -25,15 +25,21 @@ export async function getFormWithRecords(formId: string) {
     include: {
       records: {
         include: { person: true, category: true },
-        orderBy: { employeeId: "asc" },
+        orderBy: { person: { employeeId: "asc" } },
       },
       auditLogs: { orderBy: { createdAt: "asc" } },
       previousForm: true,
       nextForm: true,
     },
   });
-  if (!form || form.status !== "pending_review") return form;
-  return { ...form, records: form.records.filter(isFilledRecord) };
+  if (!form) return form;
+
+  // employeeId is no longer a column on AttendanceRecord (see
+  // docs/2026-07-31-attendance-record-personid-migration) — flatten it back
+  // from the person relation so the API response shape is unchanged.
+  const records = form.records.map((r) => ({ ...r, employeeId: r.person.employeeId }));
+  if (form.status !== "pending_review") return { ...form, records };
+  return { ...form, records: records.filter(isFilledRecord) };
 }
 
 export function findActiveFormByDate(date: string) {
@@ -77,10 +83,10 @@ export async function createDailyForm(date: string, operatorName: string) {
           activeDateKey: date,
           records: {
             create: activePersons.map((p) => ({
-              employeeId: p.employeeId,
+              personId: p.id,
               date,
               categoryId: null,
-              activeKey: `${p.employeeId}:${date}`,
+              activeKey: `${p.id}:${date}`,
             })),
           },
         },
@@ -126,9 +132,12 @@ export async function saveFormRecords(
 
   await prisma.$transaction(async (tx) => {
     for (const change of changes) {
-      const record = await tx.attendanceRecord.findUnique({
-        where: { employeeId_formId: { employeeId: change.employeeId, formId } },
-      });
+      const person = await tx.person.findUnique({ where: { employeeId: change.employeeId } });
+      const record = person
+        ? await tx.attendanceRecord.findUnique({
+            where: { personId_formId: { personId: person.id, formId } },
+          })
+        : null;
       if (!record) {
         throw new AppError(404, `表單中找不到工號 ${change.employeeId}`);
       }
@@ -266,11 +275,11 @@ export async function voidAndResubmitForm(formId: string, operatorName: string) 
         activeDateKey: form.date,
         records: {
           create: form.records.map((r) => ({
-            employeeId: r.employeeId,
+            personId: r.personId,
             date: form.date,
             categoryId: r.categoryId,
             note: r.note,
-            activeKey: `${r.employeeId}:${form.date}`,
+            activeKey: `${r.personId}:${form.date}`,
           })),
         },
       },

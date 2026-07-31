@@ -37,7 +37,7 @@ CREATE TABLE "attendance_form" (
 CREATE TABLE "attendance_record" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "formId" TEXT NOT NULL,
-    "employeeId" TEXT NOT NULL,
+    "personId" TEXT NOT NULL,
     "date" TEXT NOT NULL,
     "categoryId" TEXT,
     "note" TEXT,
@@ -46,7 +46,7 @@ CREATE TABLE "attendance_record" (
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "attendance_record_formId_fkey" FOREIGN KEY ("formId") REFERENCES "attendance_form" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "attendance_record_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "person" ("employeeId") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "attendance_record_personId_fkey" FOREIGN KEY ("personId") REFERENCES "person" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "attendance_record_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "attendance_category" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
@@ -77,4 +77,4 @@ CREATE UNIQUE INDEX "attendance_form_activeDateKey_key" ON "attendance_form"("ac
 CREATE UNIQUE INDEX "attendance_record_activeKey_key" ON "attendance_record"("activeKey");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "attendance_record_employeeId_formId_key" ON "attendance_record"("employeeId", "formId");
+CREATE UNIQUE INDEX "attendance_record_personId_formId_key" ON "attendance_record"("personId", "formId");

@@ -300,9 +300,22 @@ describe("未填不阻擋送審／核准，資料不被刪除 (T-4, spec 2026-07
 
     const records = await prisma.attendanceRecord.findMany({ where: { formId: form.id } });
     expect(records).toHaveLength(2);
-    const e002 = records.find((r) => r.employeeId === "E002");
+    const person002 = await prisma.person.findUniqueOrThrow({ where: { employeeId: "E002" } });
+    const e002 = records.find((r) => r.personId === person002.id);
     expect(e002).toBeDefined();
     expect(e002?.categoryId).toBeNull();
     expect(e002?.voided).toBe(false);
+  });
+});
+
+describe("工號更正後表單詳情即時反映新值 (spec 2026-07-31-attendance-record-personid-migration AC-4)", () => {
+  it("shows the corrected employeeId in getFormWithRecords without touching AttendanceRecord", async () => {
+    const person = await seedPerson("E001", "王小明");
+    const form = await createDailyForm("2026-01-01", "班長甲");
+
+    await prisma.person.update({ where: { id: person.id }, data: { employeeId: "E999" } });
+
+    const reloaded = await getFormWithRecords(form.id);
+    expect(reloaded?.records.map((r) => r.employeeId)).toEqual(["E999"]);
   });
 });
