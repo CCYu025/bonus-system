@@ -50,6 +50,12 @@ The presentation-layer filtering (`src/app/attendance-query/filters.ts`) — der
 
 The highest-risk part isn't the predicate itself, it's **which status it's applied to**. `getFormWithRecords()` must only filter when `status === "pending_review"` — `draft`/`rejected` have to keep returning the full list, or the foreman loses the ability to see and fill in exactly the rows that need fixing. When testing a fix or change here, cover both sides symmetrically: a form left with an unfilled person after **rejection** and after **void-and-resubmit** should both (a) show the unfilled person again once back in an editable status, and (b) show up correctly in `queryAttendanceByMonth` once filled in and re-approved. An early review of this feature caught exactly this asymmetry — the reject path only had case (a) covered, not (b) — see `src/lib/attendance-query.test.ts`'s `'includes a person after their previously-未填 record is filled in following a rejection'` for the case that closed the gap.
 
+## AttendanceRecord is keyed by personId, not employeeId (see `docs/database.md`)
+
+`AttendanceRecord.personId` references `Person.id` (surrogate key), never `Person.employeeId`. When testing anything that touches `AttendanceRecord` — `createDailyForm`, `saveFormRecords`, `voidAndResubmitForm`, `getFormWithRecords`, `queryAttendanceByMonth` — the case worth asserting explicitly is: **update `Person.employeeId` directly via `prisma.person.update()` after records already exist, then re-read through the function under test, and confirm the new `employeeId` shows up with zero changes to any `AttendanceRecord` row.** See `src/lib/forms.test.ts`'s `'shows the corrected employeeId in getFormWithRecords without touching AttendanceRecord'` and the equivalent case in `src/lib/attendance-query.test.ts` for the pattern — this is the entire point of the `personId` design (`docs/2026-07-31-attendance-record-personid-migration/spec.md`), so a change here that breaks it silently defeats the migration.
+
+The other thing worth re-checking after touching this area: `activeKey` (`"${personId}:${date}"`) uniqueness must still hold across a full void-and-resubmit cycle (approve → void → resubmit → approve again) — exactly one non-voided `AttendanceRecord` per `personId`+`date` at any point. The existing version-chain tests in `forms.test.ts`/`attendance-query.test.ts` already cover this; don't remove that coverage when refactoring.
+
 ## Adding tests for form-scoring fields
 
 If this changes `prisma/schema.prisma`, write the migration first per `docs/database.md`, then:
