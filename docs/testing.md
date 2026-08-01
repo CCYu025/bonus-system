@@ -1,6 +1,6 @@
 # Testing
 
-Read this before adding any new `lib/*.ts` logic, a new API route, or a schema change — including the still-upcoming form-scoring-fields feature.
+Read this before adding any new `lib/*.ts` logic, a new API route, or a schema change.
 
 ## Runner & where tests live
 
@@ -56,11 +56,17 @@ The highest-risk part isn't the predicate itself, it's **which status it's appli
 
 The other thing worth re-checking after touching this area: `activeKey` (`"${personId}:${date}"`) uniqueness must still hold across a full void-and-resubmit cycle (approve → void → resubmit → approve again) — exactly one non-voided `AttendanceRecord` per `personId`+`date` at any point. The existing version-chain tests in `forms.test.ts`/`attendance-query.test.ts` already cover this; don't remove that coverage when refactoring.
 
-## Adding tests for form-scoring fields
+## The attendance-extended-fields feature (implemented — `src/lib/compliance-ratings.ts`, `src/lib/three-s-performance.ts`, `src/lib/forms.ts`)
 
-If this changes `prisma/schema.prisma`, write the migration first per `docs/database.md`, then:
-- Test the new field's constraints/defaults in isolation (what happens when it's omitted, what the default is, any validation `lib/forms.ts` adds).
-- Re-run (or extend) the existing draft → submit → approve/reject → void-and-resubmit transition tests to confirm they're unaffected by the new field — this is the regression that's easy to introduce silently when a schema change touches `AttendanceForm`/`AttendanceRecord`.
+Adds four nullable columns to `AttendanceRecord` (`overtimeHours`, `complianceRatingId`, `threeSPerformanceId`, `actualQuantity`) plus two new lookup tables — see `docs/database.md`'s schema-shape section and `docs/2026-08-01-attendance-extended-fields/spec.md` for the AC this satisfies.
+
+`compliance-ratings.test.ts` / `three-s-performance.test.ts` mirror `categories.test.ts`'s shape (list/create/update/404), plus an explicit assertion that created records carry no `score`/`weight` field — that's out of scope until a future weighting feature exists, and the test exists specifically to catch someone adding one prematurely.
+
+`forms.test.ts` covers the two behaviors that matter most for this feature:
+- **Format validation** in `saveFormRecords`: `actualQuantity` must be a positive integer, `overtimeHours` must be 1–10 — both reject with a 400 otherwise (zero, negative, and non-integer values are all tested).
+- **The 未填-locks-everything invariant**: whenever a change's `categoryId` is `null`, `saveFormRecords` force-nulls the other four columns and `note`, regardless of what the caller sent. This is tested in both directions — a change where `categoryId` is already `null` with the other fields populated in the same request, and a change that flips an already-filled row's `categoryId` back to `null`. `voidAndResubmitForm` is also tested to confirm these four fields carry across a void/resubmit cycle, same as `categoryId`/`note` always did — easy regression to introduce silently since that function's `create` mapping lists fields explicitly.
+
+If you touch any of these five columns again, keep both of the above tested together — they're two different rules (format vs. lock) that happen to live in the same code path.
 
 ## When a route-level test is worth it
 

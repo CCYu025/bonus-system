@@ -12,14 +12,34 @@ type Category = {
   isActive: boolean;
 };
 
+type ComplianceRating = {
+  id: string;
+  code: string;
+  name: string;
+  isActive: boolean;
+};
+
+type ThreeSPerformance = {
+  id: string;
+  code: string;
+  name: string;
+  isActive: boolean;
+};
+
 type RecordItem = {
   id: string;
   employeeId: string;
   categoryId: string | null;
   note: string | null;
+  overtimeHours: number | null;
+  complianceRatingId: string | null;
+  threeSPerformanceId: string | null;
+  actualQuantity: number | null;
   voided: boolean;
   person: { name: string };
   category: { id: string; name: string } | null;
+  complianceRating: { id: string; name: string } | null;
+  threeSPerformance: { id: string; name: string } | null;
 };
 
 type AuditLogItem = {
@@ -41,6 +61,19 @@ type FormDetail = {
   records: RecordItem[];
   auditLogs: AuditLogItem[];
 };
+
+// 可編輯欄位——出勤類別為未填（null）時，其餘欄位（含備註）皆鎖定/清空
+// （AC-6/AC-7），對應後端 saveFormRecords 的同一條規則（NFR-1）。
+type EditState = {
+  categoryId: string | null;
+  note: string;
+  overtimeHours: number | null;
+  complianceRatingId: string | null;
+  threeSPerformanceId: string | null;
+  actualQuantity: number | null;
+};
+
+const OVERTIME_HOUR_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1);
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "草稿",
@@ -82,9 +115,9 @@ function FormDetailPageInner({
 
   const [form, setForm] = useState<FormDetail | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [edits, setEdits] = useState<
-    Record<string, { categoryId: string | null; note: string }>
-  >({});
+  const [complianceRatings, setComplianceRatings] = useState<ComplianceRating[]>([]);
+  const [threeSPerformances, setThreeSPerformances] = useState<ThreeSPerformance[]>([]);
+  const [edits, setEdits] = useState<Record<string, EditState>>({});
   const [rejectReason, setRejectReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -103,29 +136,46 @@ function FormDetailPageInner({
     authFetch("/api/categories?activeOnly=true")
       .then((r) => (r.ok ? r.json() : []))
       .then(setCategories);
+    authFetch("/api/compliance-ratings?activeOnly=true")
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setComplianceRatings);
+    authFetch("/api/three-s-performance?activeOnly=true")
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setThreeSPerformances);
   }, [load]);
 
   const editable = form && ["draft", "rejected"].includes(form.status);
 
-  function getFieldValue(r: RecordItem, field: "categoryId" | "note") {
+  function getFieldValue<K extends keyof EditState>(r: RecordItem, field: K): EditState[K] {
     const edit = edits[r.employeeId];
     if (edit) return edit[field];
-    return field === "categoryId" ? r.categoryId : r.note ?? "";
+    if (field === "note") return (r.note ?? "") as EditState[K];
+    return r[field] as EditState[K];
   }
 
-  function setField(
-    r: RecordItem,
-    field: "categoryId" | "note",
-    value: string | null
-  ) {
-    setEdits((prev) => ({
-      ...prev,
-      [r.employeeId]: {
-        categoryId:
-          field === "categoryId" ? value : prev[r.employeeId]?.categoryId ?? r.categoryId,
-        note: field === "note" ? value ?? "" : prev[r.employeeId]?.note ?? r.note ?? "",
-      },
-    }));
+  function setField<K extends keyof EditState>(r: RecordItem, field: K, value: EditState[K]) {
+    setEdits((prev) => {
+      const base: EditState =
+        prev[r.employeeId] ?? {
+          categoryId: r.categoryId,
+          note: r.note ?? "",
+          overtimeHours: r.overtimeHours,
+          complianceRatingId: r.complianceRatingId,
+          threeSPerformanceId: r.threeSPerformanceId,
+          actualQuantity: r.actualQuantity,
+        };
+      const next: EditState = { ...base, [field]: value };
+      // AC-7：出勤類別改回未選時，同列其餘欄位（含備註）立即清空，讓 UI 馬上
+      // 反映鎖定效果；實際的資料完整性仍由後端 saveFormRecords 保證（NFR-1）。
+      if (field === "categoryId" && value === null) {
+        next.note = "";
+        next.overtimeHours = null;
+        next.complianceRatingId = null;
+        next.threeSPerformanceId = null;
+        next.actualQuantity = null;
+      }
+      return { ...prev, [r.employeeId]: next };
+    });
   }
 
   async function handleSave() {
@@ -133,6 +183,10 @@ function FormDetailPageInner({
       employeeId,
       categoryId: v.categoryId,
       note: v.note,
+      overtimeHours: v.overtimeHours,
+      complianceRatingId: v.complianceRatingId,
+      threeSPerformanceId: v.threeSPerformanceId,
+      actualQuantity: v.actualQuantity,
     }));
     if (changes.length === 0) {
       setError("尚無變更內容");
@@ -243,45 +297,140 @@ function FormDetailPageInner({
             <th>工號</th>
             <th>姓名</th>
             <th>出勤類別</th>
+            <th>加班時數</th>
+            <th>配合度</th>
+            <th>3S表現</th>
+            <th>實際產量</th>
             <th>備註</th>
           </tr>
         </thead>
         <tbody>
-          {form.records.map((r) => (
-            <tr key={r.id}>
-              <td>{r.employeeId}</td>
-              <td>{r.person.name}</td>
-              <td>
-                {editable ? (
-                  <select
-                    value={getFieldValue(r, "categoryId") ?? ""}
-                    onChange={(e) =>
-                      setField(r, "categoryId", e.target.value || null)
-                    }
-                  >
-                    <option value="">未填</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  r.category?.name ?? "未填"
-                )}
-              </td>
-              <td>
-                {editable ? (
-                  <input
-                    value={getFieldValue(r, "note") ?? ""}
-                    onChange={(e) => setField(r, "note", e.target.value)}
-                  />
-                ) : (
-                  r.note ?? ""
-                )}
-              </td>
-            </tr>
-          ))}
+          {form.records.map((r) => {
+            // AC-6：出勤類別未填時，同列其餘欄位（含備註）皆鎖定為不可編輯
+            const rowLocked = getFieldValue(r, "categoryId") === null;
+            const otherFieldsEditable = editable && !rowLocked;
+
+            return (
+              <tr key={r.id}>
+                <td>{r.employeeId}</td>
+                <td>{r.person.name}</td>
+                <td>
+                  {editable ? (
+                    <select
+                      value={getFieldValue(r, "categoryId") ?? ""}
+                      onChange={(e) =>
+                        setField(r, "categoryId", e.target.value || null)
+                      }
+                    >
+                      <option value="">未填</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    r.category?.name ?? "未填"
+                  )}
+                </td>
+                <td>
+                  {editable ? (
+                    <select
+                      disabled={!otherFieldsEditable}
+                      value={getFieldValue(r, "overtimeHours") ?? ""}
+                      onChange={(e) =>
+                        setField(
+                          r,
+                          "overtimeHours",
+                          e.target.value === "" ? null : Number(e.target.value)
+                        )
+                      }
+                    >
+                      <option value="">未選</option>
+                      {OVERTIME_HOUR_OPTIONS.map((h) => (
+                        <option key={h} value={h}>
+                          {h}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    r.overtimeHours ?? ""
+                  )}
+                </td>
+                <td>
+                  {editable ? (
+                    <select
+                      disabled={!otherFieldsEditable}
+                      value={getFieldValue(r, "complianceRatingId") ?? ""}
+                      onChange={(e) =>
+                        setField(r, "complianceRatingId", e.target.value || null)
+                      }
+                    >
+                      <option value="">未選</option>
+                      {complianceRatings.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    r.complianceRating?.name ?? ""
+                  )}
+                </td>
+                <td>
+                  {editable ? (
+                    <select
+                      disabled={!otherFieldsEditable}
+                      value={getFieldValue(r, "threeSPerformanceId") ?? ""}
+                      onChange={(e) =>
+                        setField(r, "threeSPerformanceId", e.target.value || null)
+                      }
+                    >
+                      <option value="">未選</option>
+                      {threeSPerformances.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    r.threeSPerformance?.name ?? ""
+                  )}
+                </td>
+                <td>
+                  {editable ? (
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      disabled={!otherFieldsEditable}
+                      value={getFieldValue(r, "actualQuantity") ?? ""}
+                      onChange={(e) =>
+                        setField(
+                          r,
+                          "actualQuantity",
+                          e.target.value === "" ? null : Number(e.target.value)
+                        )
+                      }
+                    />
+                  ) : (
+                    r.actualQuantity ?? ""
+                  )}
+                </td>
+                <td>
+                  {editable ? (
+                    <input
+                      disabled={!otherFieldsEditable}
+                      value={getFieldValue(r, "note") ?? ""}
+                      onChange={(e) => setField(r, "note", e.target.value)}
+                    />
+                  ) : (
+                    r.note ?? ""
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 

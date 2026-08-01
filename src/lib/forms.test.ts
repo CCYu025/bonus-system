@@ -24,6 +24,14 @@ async function seedCategory(code = "OT", name = "加班") {
   return prisma.attendanceCategory.create({ data: { code, name } });
 }
 
+async function seedComplianceRating(code = "CROSS", name = "跨崗位") {
+  return prisma.complianceRating.create({ data: { code, name } });
+}
+
+async function seedThreeSPerformance(code = "NORMAL", name = "正常") {
+  return prisma.threeSPerformance.create({ data: { code, name } });
+}
+
 describe("createDailyForm", () => {
   // AC-4 / T-6
   it("creates a draft with every active person defaulted to 未填, and logs 'created'", async () => {
@@ -39,6 +47,15 @@ describe("createDailyForm", () => {
     expect(withRecords?.status).toBe("draft");
     expect(withRecords?.records).toHaveLength(2);
     expect(withRecords?.records.every((r) => r.categoryId === null)).toBe(true);
+    expect(
+      withRecords?.records.every(
+        (r) =>
+          r.overtimeHours === null &&
+          r.complianceRatingId === null &&
+          r.threeSPerformanceId === null &&
+          r.actualQuantity === null
+      )
+    ).toBe(true);
     expect(withRecords?.auditLogs.map((l) => l.action)).toEqual(["created"]);
   });
 
@@ -317,5 +334,151 @@ describe("工號更正後表單詳情即時反映新值 (spec 2026-07-31-attenda
 
     const reloaded = await getFormWithRecords(form.id);
     expect(reloaded?.records.map((r) => r.employeeId)).toEqual(["E999"]);
+  });
+});
+
+describe("saveFormRecords — 擴充欄位格式驗證 (spec 2026-08-01-attendance-extended-fields AC-5)", () => {
+  it("rejects actualQuantity that is zero, negative, or non-integer", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+
+    for (const bad of [0, -1, 1.5]) {
+      await expect(
+        saveFormRecords(form.id, "班長甲", [
+          { employeeId: "E001", categoryId: category.id, actualQuantity: bad },
+        ])
+      ).rejects.toMatchObject({ status: 400 });
+    }
+  });
+
+  it("accepts a positive integer actualQuantity", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+
+    const updated = await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id, actualQuantity: 50 },
+    ]);
+    expect(updated?.records.find((r) => r.employeeId === "E001")?.actualQuantity).toBe(50);
+  });
+
+  it("rejects overtimeHours outside the 1-10 range or non-integer", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+
+    for (const bad of [0, 11, 1.5]) {
+      await expect(
+        saveFormRecords(form.id, "班長甲", [
+          { employeeId: "E001", categoryId: category.id, overtimeHours: bad },
+        ])
+      ).rejects.toMatchObject({ status: 400 });
+    }
+  });
+
+  it("allows compliance rating / 3S performance / overtime hours / actual quantity to stay unselected without error (AC-4)", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+
+    const updated = await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id },
+    ]);
+    const e001 = updated?.records.find((r) => r.employeeId === "E001");
+    expect(e001?.complianceRatingId).toBeNull();
+    expect(e001?.threeSPerformanceId).toBeNull();
+    expect(e001?.overtimeHours).toBeNull();
+    expect(e001?.actualQuantity).toBeNull();
+  });
+});
+
+describe("saveFormRecords — 出勤類別未填時鎖定/清空其餘欄位 (spec 2026-08-01-attendance-extended-fields AC-6/AC-7/AC-8)", () => {
+  it("ignores non-null extended fields and note when categoryId is null, even if the client sends them (AC-8)", async () => {
+    await seedPerson("E001", "王小明");
+    const complianceRating = await seedComplianceRating();
+    const threeS = await seedThreeSPerformance();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+
+    const updated = await saveFormRecords(form.id, "班長甲", [
+      {
+        employeeId: "E001",
+        categoryId: null,
+        note: "備註",
+        overtimeHours: 3,
+        complianceRatingId: complianceRating.id,
+        threeSPerformanceId: threeS.id,
+        actualQuantity: 10,
+      },
+    ]);
+
+    const e001 = updated?.records.find((r) => r.employeeId === "E001");
+    expect(e001?.categoryId).toBeNull();
+    expect(e001?.note).toBeNull();
+    expect(e001?.overtimeHours).toBeNull();
+    expect(e001?.complianceRatingId).toBeNull();
+    expect(e001?.threeSPerformanceId).toBeNull();
+    expect(e001?.actualQuantity).toBeNull();
+  });
+
+  it("clears all extended fields and note when categoryId is changed back to null (AC-7)", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    const complianceRating = await seedComplianceRating();
+    const threeS = await seedThreeSPerformance();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+
+    await saveFormRecords(form.id, "班長甲", [
+      {
+        employeeId: "E001",
+        categoryId: category.id,
+        note: "備註",
+        overtimeHours: 3,
+        complianceRatingId: complianceRating.id,
+        threeSPerformanceId: threeS.id,
+        actualQuantity: 10,
+      },
+    ]);
+
+    const cleared = await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: null },
+    ]);
+
+    const e001 = cleared?.records.find((r) => r.employeeId === "E001");
+    expect(e001?.categoryId).toBeNull();
+    expect(e001?.note).toBeNull();
+    expect(e001?.overtimeHours).toBeNull();
+    expect(e001?.complianceRatingId).toBeNull();
+    expect(e001?.threeSPerformanceId).toBeNull();
+    expect(e001?.actualQuantity).toBeNull();
+  });
+});
+
+describe("voidAndResubmitForm — 擴充欄位隨版本鏈延續 (spec 2026-08-01-attendance-extended-fields, NFR-2 回歸)", () => {
+  it("carries overtimeHours/complianceRatingId/threeSPerformanceId/actualQuantity into the new draft", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    const complianceRating = await seedComplianceRating();
+    const threeS = await seedThreeSPerformance();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+    await saveFormRecords(form.id, "班長甲", [
+      {
+        employeeId: "E001",
+        categoryId: category.id,
+        overtimeHours: 4,
+        complianceRatingId: complianceRating.id,
+        threeSPerformanceId: threeS.id,
+        actualQuantity: 20,
+      },
+    ]);
+    await submitForm(form.id, "班長甲");
+    await approveForm(form.id, "主管");
+
+    const newForm = await voidAndResubmitForm(form.id, "班長甲");
+    const newE001 = newForm?.records.find((r) => r.employeeId === "E001");
+    expect(newE001?.overtimeHours).toBe(4);
+    expect(newE001?.complianceRatingId).toBe(complianceRating.id);
+    expect(newE001?.threeSPerformanceId).toBe(threeS.id);
+    expect(newE001?.actualQuantity).toBe(20);
   });
 });

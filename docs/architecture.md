@@ -26,3 +26,7 @@ The installed Next.js version has breaking changes from what training data assum
 ## Roles surfaced in the UI
 
 `src/app/top-nav.tsx` fetches `/api/auth/me` on every route change to decide which nav links to show (`developer`-only links: supervisor approval queue, account management). This is UX only — it does not enforce anything; the actual enforcement is the `requireRole` call in the corresponding API route (see `docs/auth.md`).
+
+## Lookup-list management pattern (`/categories`)
+
+`src/app/categories/page.tsx` is a tab shell over three structurally-identical lookup lists (`AttendanceCategory`, `ComplianceRating`, `ThreeSPerformance`), rendered by a shared `LookupListPanel` (`src/app/categories/lookup-list-panel.tsx`). The three lists are *not* equally editable — `AttendanceCategory` is intentionally locked to seed-only + toggle (see `docs/database.md`'s schema-shape section), so `LookupListPanel` takes a `mode: "readonly" | "editable"` prop rather than assuming every lookup list gets the same CRUD surface. If you add a fourth lookup list here, decide its mode deliberately instead of defaulting to `"editable"`.

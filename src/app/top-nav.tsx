@@ -32,7 +32,7 @@ export default function TopNav() {
     <nav className="topnav">
       <Link href="/">首頁</Link>
       <Link href="/persons">人員主檔</Link>
-      <Link href="/categories">出勤類別</Link>
+      <Link href="/categories">類別管理</Link>
       <Link href="/forms">出勤表單（班長）</Link>
       <Link href="/attendance-query">出勤查詢</Link>
       {me?.role === "developer" && (

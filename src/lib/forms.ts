@@ -24,7 +24,12 @@ export async function getFormWithRecords(formId: string) {
     where: { id: formId },
     include: {
       records: {
-        include: { person: true, category: true },
+        include: {
+          person: true,
+          category: true,
+          complianceRating: true,
+          threeSPerformance: true,
+        },
         orderBy: { person: { employeeId: "asc" } },
       },
       auditLogs: { orderBy: { createdAt: "asc" } },
@@ -110,6 +115,10 @@ export type RecordChange = {
   employeeId: string;
   categoryId: string | null;
   note?: string | null;
+  overtimeHours?: number | null;
+  complianceRatingId?: string | null;
+  threeSPerformanceId?: string | null;
+  actualQuantity?: number | null;
 };
 
 // T-7: upsert only the rows the caller actually changed, so concurrent
@@ -141,11 +150,38 @@ export async function saveFormRecords(
       if (!record) {
         throw new AppError(404, `表單中找不到工號 ${change.employeeId}`);
       }
+
+      // AC-6/AC-7/AC-8：出勤類別為未填（null）時，同列其餘欄位（含備註）一律
+      // 清空，並忽略 client 傳入的任何非空值——這是唯一的資料完整性防線，不能
+      // 只靠前端 disable（NFR-1）。
+      const locked = change.categoryId === null;
+      const note = locked ? null : change.note ?? null;
+      const overtimeHours = locked ? null : change.overtimeHours ?? null;
+      const complianceRatingId = locked ? null : change.complianceRatingId ?? null;
+      const threeSPerformanceId = locked ? null : change.threeSPerformanceId ?? null;
+      const actualQuantity = locked ? null : change.actualQuantity ?? null;
+
+      // AC-5：實際產量僅接受正整數；加班時數僅接受 1–10 整數（同一欄位的防呆，
+      // UI 的下拉本身不會送出不合法值，但後端仍須擋，見 NFR-1）。
+      if (
+        overtimeHours !== null &&
+        (!Number.isInteger(overtimeHours) || overtimeHours < 1 || overtimeHours > 10)
+      ) {
+        throw new AppError(400, "加班時數須為 1 到 10 的整數");
+      }
+      if (actualQuantity !== null && (!Number.isInteger(actualQuantity) || actualQuantity <= 0)) {
+        throw new AppError(400, "實際產量須為正整數");
+      }
+
       await tx.attendanceRecord.update({
         where: { id: record.id },
         data: {
           categoryId: change.categoryId,
-          note: change.note ?? null,
+          note,
+          overtimeHours,
+          complianceRatingId,
+          threeSPerformanceId,
+          actualQuantity,
         },
       });
     }
@@ -279,6 +315,10 @@ export async function voidAndResubmitForm(formId: string, operatorName: string) 
             date: form.date,
             categoryId: r.categoryId,
             note: r.note,
+            overtimeHours: r.overtimeHours,
+            complianceRatingId: r.complianceRatingId,
+            threeSPerformanceId: r.threeSPerformanceId,
+            actualQuantity: r.actualQuantity,
             activeKey: `${r.personId}:${form.date}`,
           })),
         },

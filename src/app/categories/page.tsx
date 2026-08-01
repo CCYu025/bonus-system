@@ -1,80 +1,55 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { authFetch } from "@/lib/auth-client";
+import { useState } from "react";
+import LookupListPanel from "./lookup-list-panel";
 
-type Category = {
-  id: string;
-  code: string;
-  name: string;
-  sortOrder: number;
-  isActive: boolean;
-};
+const TABS = [
+  {
+    key: "category",
+    label: "出勤類別",
+    apiBase: "/api/categories",
+    mode: "readonly" as const,
+  },
+  {
+    key: "compliance",
+    label: "配合度",
+    apiBase: "/api/compliance-ratings",
+    mode: "editable" as const,
+  },
+  {
+    key: "three-s",
+    label: "3S表現",
+    apiBase: "/api/three-s-performance",
+    mode: "editable" as const,
+  },
+];
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
-
-  async function load() {
-    const res = await authFetch("/api/categories");
-    if (res.ok) setCategories(await res.json());
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  async function toggleActive(cat: Category) {
-    const res = await authFetch(`/api/categories/${cat.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isActive: !cat.isActive }),
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      alert(data.error ?? "更新失敗");
-      return;
-    }
-    await load();
-  }
+  const [activeKey, setActiveKey] = useState(TABS[0].key);
+  const current = TABS.find((t) => t.key === activeKey) ?? TABS[0];
 
   return (
     <div className="container">
-      <h1>出勤類別字典</h1>
-      <p className="hint">
-        出勤類別為固定設定，如需新增或修改請聯繫系統維護人員調整設定；此畫面僅能停用／啟用既有類別，停用不影響既有出勤紀錄的類別對應。
-      </p>
+      <h1>類別管理</h1>
+      <div className="inline-form">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setActiveKey(t.key)}
+            disabled={t.key === activeKey}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>業務代碼</th>
-            <th>名稱</th>
-            <th>排序</th>
-            <th>狀態</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {categories.map((c) => (
-            <tr key={c.id}>
-              <td>{c.code}</td>
-              <td>{c.name}</td>
-              <td>{c.sortOrder}</td>
-              <td>{c.isActive ? "啟用" : "停用"}</td>
-              <td>
-                <button onClick={() => toggleActive(c)}>
-                  {c.isActive ? "停用" : "啟用"}
-                </button>
-              </td>
-            </tr>
-          ))}
-          {categories.length === 0 && (
-            <tr>
-              <td colSpan={5}>尚無出勤類別</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+      {current.mode === "readonly" && (
+        <p className="hint">
+          出勤類別為固定設定，如需新增或修改請聯繫系統維護人員調整設定；此畫面僅能停用／啟用既有類別，停用不影響既有出勤紀錄的類別對應。
+        </p>
+      )}
+
+      <LookupListPanel key={current.apiBase} apiBase={current.apiBase} mode={current.mode} />
     </div>
   );
 }

@@ -69,6 +69,38 @@ model AttendanceCategory {
   @@map("attendance_category")
 }
 
+// 配合度 — 可透過畫面新增/編輯（不同於 AttendanceCategory，見
+// docs/2026-08-01-attendance-extended-fields/spec.md AC-1）。刻意不含分數/權重
+// 欄位：評分系統是另一個未來需求，這裡只負責收資料。
+model ComplianceRating {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  records AttendanceRecord[]
+
+  @@map("compliance_rating")
+}
+
+// 3S表現 — 可透過畫面新增/編輯，結構同 ComplianceRating。
+model ThreeSPerformance {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  records AttendanceRecord[]
+
+  @@map("three_s_performance")
+}
+
 enum FormStatus {
   draft
   pending_review
@@ -118,6 +150,17 @@ model AttendanceRecord {
   categoryId String?
   category   AttendanceCategory? @relation(fields: [categoryId], references: [id])
   note       String?
+
+  // 以下四欄為 docs/2026-08-01-attendance-extended-fields 新增，皆可為 null：
+  // "有資料就有分數，未填視為無資料"，本次不做必填限制、不做分數換算。
+  // categoryId 為 null（未填）時，saveFormRecords 會強制把這四欄與 note 一併清空
+  // （AC-6/AC-7/AC-8），不可只在前端擋。
+  overtimeHours       Int? // 1–10 的整數，UI 不提供 0 這個選項
+  complianceRatingId  String?
+  complianceRating    ComplianceRating?   @relation(fields: [complianceRatingId], references: [id])
+  threeSPerformanceId String?
+  threeSPerformance   ThreeSPerformance?  @relation(fields: [threeSPerformanceId], references: [id])
+  actualQuantity      Int? // 實際產量，僅允許正整數
 
   voided Boolean @default(false)
 
