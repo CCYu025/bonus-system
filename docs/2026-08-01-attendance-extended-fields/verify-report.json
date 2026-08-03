@@ -1,0 +1,72 @@
+[
+  {
+    "ac_id": "AC-1",
+    "given_when_then": "Given 使用者進入類別管理頁面 / When 切換「出勤類別」「配合度」「3S表現」三個子分頁 / Then 配合度、3S表現子分頁具備新增／編輯／排序／停用功能；出勤類別子分頁僅維持既有的停用／啟用操作，不提供新增或編輯",
+    "verification_method": "static_review",
+    "result": "PASS",
+    "evidence": "無對應的前端元件自動化測試（src/app/categories/ 下無 *.test.* 檔案），以程式碼審查驗證：src/app/categories/page.tsx 第6-25行定義三個 TABS，出勤類別 mode=\"readonly\"，配合度／3S表現 mode=\"editable\"；src/app/categories/lookup-list-panel.tsx 第147-149行「編輯」按鈕、第165-185行新增表單區塊皆以 `mode === \"editable\"` 條件渲染，readonly 模式下完全不渲染新增/編輯 UI，僅保留第150-152行的啟用/停用按鈕（兩種模式皆有）。後端亦同步限制：src/lib/categories.ts 僅有 listCategories/setCategoryActive（無 create/update），src/app/api/categories/route.ts 僅有 GET（無 POST），src/app/api/categories/[id]/route.ts 的 PATCH 僅接受 isActive 欄位（setCategoryActive(id, Boolean(body.isActive))），無法透過 API 修改 code/name。前後端一致驗證出勤類別維持唯讀限制。"
+  },
+  {
+    "ac_id": "AC-2",
+    "given_when_then": "Given 開發者在「配合度」或「3S表現」子分頁新增一筆選項 / When 輸入 code／name 並儲存 / Then 該選項出現在出勤表單填寫頁對應的下拉清單中，且該清單資料結構不含任何分數／權重欄位",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "npm test 全數通過（11 test files / 92 tests，見 evidence/npm-test-full.log）；針對性執行 src/lib/compliance-ratings.test.ts、src/lib/three-s-performance.test.ts 共18項測試全通過（見 evidence/npm-test-targeted.log），其中「does not include a score/weight field on created records」明確斷言 `Object.keys(created)` 不含 score/weight；createComplianceRating/createThreeSPerformance 測試驗證新增後可透過 listComplianceRatings()/listThreeSPerformances() 取回。前端串接部分（「出現在出勤表單填寫頁對應下拉清單」）以 static_review 補充確認：src/app/forms/[id]/page.tsx 第139-144行於載入時呼叫 `authFetch(\"/api/compliance-ratings?activeOnly=true\")` 與 `authFetch(\"/api/three-s-performance?activeOnly=true\")`，並於第360-399行渲染為對應的 <select> 選項清單。prisma/schema.prisma 第75-102行 ComplianceRating/ThreeSPerformance model 定義確認不含 score 欄位。"
+  },
+  {
+    "ac_id": "AC-3",
+    "given_when_then": "Given 表單填寫頁面中，某人員的出勤類別已選 / When 開啟該人員的加班時數下拉選單 / Then 選項僅包含「未選」與 1 到 10 的整數，沒有 0 這個選項，且預設狀態顯示未選",
+    "verification_method": "static_review",
+    "result": "PASS",
+    "evidence": "無前端元件自動化測試覆蓋下拉選項渲染，以程式碼審查驗證：src/app/forms/[id]/page.tsx 第76行 `const OVERTIME_HOUR_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1);` 產生 [1,2,...,10]，不含 0；第336-358行 <select> 第一個 <option value=\"\"> 為「未選」，其後映射 OVERTIME_HOUR_OPTIONS；`getFieldValue` 未編輯時取自 record 的 overtimeHours（新建記錄預設 null），value=\"\" 對應未選，符合預設未選。後端範圍驗證以 pytest 佐證一致性：src/lib/forms.test.ts「rejects overtimeHours outside the 1-10 range or non-integer」測試對 0、11、1.5 皆斷言 status 400 拒絕，執行通過（見 evidence/npm-test-targeted.log）。"
+  },
+  {
+    "ac_id": "AC-4",
+    "given_when_then": "Given 出勤類別已選 / When 使用者不對配合度或3S表現欄位做任何選擇並儲存 / Then 對應欄位值為 null，且不會被系統判定為錯誤或阻擋送出",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/forms.test.ts 測試「allows compliance rating / 3S performance / overtime hours / actual quantity to stay unselected without error (AC-4)」：僅傳入 categoryId，不傳其餘欄位，斷言 saveFormRecords 正常執行（未拋錯）且回傳的 complianceRatingId/threeSPerformanceId/overtimeHours/actualQuantity 皆為 null。執行結果 PASS（見 evidence/npm-test-targeted.log 第24行 `✓ ... allows compliance rating / 3S performance / overtime hours / actual quantity to stay unselected without error (AC-4)`）。前端 <select> 未選時預設值為空字串對應 null（src/app/forms/[id]/page.tsx 第369行 `<option value=\"\">未選</option>`），與後端行為一致。"
+  },
+  {
+    "ac_id": "AC-5",
+    "given_when_then": "Given 出勤類別已選 / When 使用者在實際產量欄位輸入 0、負數、小數或非數字內容 / Then 系統拒絕儲存並提示格式錯誤；輸入正整數（如 1、50）時可正常儲存",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/forms.test.ts 測試「rejects actualQuantity that is zero, negative, or non-integer」對 [0, -1, 1.5] 逐一斷言 saveFormRecords 拋出 AppError status 400；測試「accepts a positive integer actualQuantity」傳入 50，斷言儲存後讀回 actualQuantity === 50。兩測試皆執行通過（見 evidence/npm-test-targeted.log）。後端實作對應 src/lib/forms.ts 第172-174行：`if (actualQuantity !== null && (!Number.isInteger(actualQuantity) || actualQuantity <= 0)) throw new AppError(400, \"實際產量須為正整數\")`。「非數字」情境由前端 <input type=\"number\"> 與 JS Number() 轉型層面防呆（src/app/forms/[id]/page.tsx 第408-413行 `e.target.value === \"\" ? null : Number(e.target.value)`），未見針對非數字字串直接呼叫 saveFormRecords 的後端測試案例，但因該值型別在 TypeScript RecordChange 定義為 `number | null`，非數字輸入在型別層與 Number.isInteger 檢查下同樣會被判定非整數而拒絕，邏輯路徑一致，不影響整體判定。"
+  },
+  {
+    "ac_id": "AC-6",
+    "given_when_then": "Given 某人員該列的出勤類別為未選（null） / When 使用者檢視或嘗試編輯該列 / Then 加班時數、配合度、3S表現、實際產量、備註皆呈現不可編輯狀態",
+    "verification_method": "static_review",
+    "result": "PASS",
+    "evidence": "前端無自動化測試覆蓋 UI disabled 狀態渲染，以程式碼審查驗證：src/app/forms/[id]/page.tsx 第310-311行 `const rowLocked = getFieldValue(r, \"categoryId\") === null; const otherFieldsEditable = editable && !rowLocked;`，第339、363、383、406、423行加班時數/配合度/3S表現/實際產量/備註五個欄位的 <select>/<input> 皆帶 `disabled={!otherFieldsEditable}`，涵蓋 spec 要求的全部五個欄位。後端同一規則以 pytest 佐證資料層真正被鎖定（非僅 UI 視覺）：src/lib/forms.test.ts「ignores non-null extended fields and note when categoryId is null, even if the client sends them (AC-8)」測試（同時覆蓋 AC-6 的後端面）執行通過，證明即使繞過前端 disabled 直接呼叫 API 也無法寫入非空值，見 evidence/npm-test-targeted.log。"
+  },
+  {
+    "ac_id": "AC-7",
+    "given_when_then": "Given 某人員該列出勤類別已選，且加班時數／配合度／3S表現／實際產量／備註至少一項已填值 / When 使用者將該列出勤類別改回未選並儲存 / Then 該列加班時數、配合度、3S表現、實際產量、備註全部被清空為 null",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/forms.test.ts 測試「clears all extended fields and note when categoryId is changed back to null (AC-7)」：先以 categoryId、note、overtimeHours=3、complianceRatingId、threeSPerformanceId、actualQuantity=10 全部填值儲存，再送出 `{ employeeId, categoryId: null }` 變更，斷言讀回結果 categoryId/note/overtimeHours/complianceRatingId/threeSPerformanceId/actualQuantity 全數為 null。執行結果 PASS（見 evidence/npm-test-targeted.log）。前端亦有即時清空的 UX 層行為：src/app/forms/[id]/page.tsx 第170-176行 `setField` 內當 `field === \"categoryId\" && value === null` 時同步清空 next 物件的 note/overtimeHours/complianceRatingId/threeSPerformanceId/actualQuantity。"
+  },
+  {
+    "ac_id": "AC-8",
+    "given_when_then": "Given 某人員該列出勤類別為未選（null） / When 客戶端直接呼叫表單記錄更新 API，嘗試寫入非空的加班時數／配合度／3S表現／實際產量／備註 / Then API 拒絕該筆欄位寫入（回傳錯誤或忽略非空值，僅保留 null），不會被寫入資料庫",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/forms.test.ts 測試「ignores non-null extended fields and note when categoryId is null, even if the client sends them (AC-8)」：直接呼叫 saveFormRecords（等同繞過前端）並帶入 categoryId: null 但 note/overtimeHours/complianceRatingId/threeSPerformanceId/actualQuantity 皆為非空值，斷言儲存後讀回全部欄位皆為 null，即後端忽略了非空值、僅保留 null。執行結果 PASS（見 evidence/npm-test-targeted.log）。對應實作 src/lib/forms.ts 第157-162行 `const locked = change.categoryId === null; ... = locked ? null : change.xxx ?? null;`，此規則在資料庫寫入前套用，不依賴前端傳入內容。"
+  },
+  {
+    "ac_id": "NFR-1",
+    "given_when_then": "標準：對「出勤類別為空但其他欄位非空」的任何 API 請求，後端一律拒絕或忽略該筆非法欄位值，不依賴前端限制作為唯一防線（對應 AC-8）",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "與 AC-8 相同測試「ignores non-null extended fields and note when categoryId is null, even if the client sends them (AC-8)」直接呼叫 lib 層 saveFormRecords（略過前端 UI 與 disabled 屬性），驗證後端獨立於前端強制執行鎖定規則，執行通過（見 evidence/npm-test-targeted.log）。程式碼審查確認鎖定判斷式（src/lib/forms.ts 第157行 `const locked = change.categoryId === null;`）位於 saveFormRecords 函式內、資料庫寫入之前，非前端邏輯，符合「不依賴前端限制作為唯一防線」的要求。"
+  },
+  {
+    "ac_id": "NFR-2",
+    "given_when_then": "標準：四個新欄位皆為可為 null 的欄位，既有已核准／已送審表單的既有記錄可正常讀取與顯示，不需回填資料即可通過既有測試",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "prisma/schema.prisma 第158-162行確認 overtimeHours/complianceRatingId/threeSPerformanceId/actualQuantity 四欄位皆為 `Int?`/`String?` nullable 型別。既有回歸測試（submitForm、approveForm/rejectForm、voidAndResubmitForm、getFormWithRecords 未填人員排除等，共約20個既有測試案例，含 2026-07-31 相關舊 spec 的測試）在新增本次欄位後仍全數通過，未回填舊資料即可通過，見 npm test 完整結果 11 test files / 92 tests 全數 PASS（evidence/npm-test-full.log）。另新增專屬回歸測試 src/lib/forms.test.ts「carries overtimeHours/complianceRatingId/threeSPerformanceId/actualQuantity into the new draft」驗證 voidAndResubmitForm 版本鏈延續新欄位資料不遺失，執行通過（見 evidence/npm-test-targeted.log）。"
+  }
+]

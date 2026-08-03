@@ -1,0 +1,68 @@
+
+ RUN  v4.1.10 C:/Users/tomof/OneDrive/桌面/Yu/WorkSpace/bonus-system
+
+applying: 20260729000000_init
+applying: 20260729010000_add_user_session
+applying: 20260801000000_add_attendance_extended_fields
+done.
+ ✓ src/lib/forms.test.ts > createDailyForm > creates a draft with every active person defaulted to 未填, and logs 'created' 288ms
+ ✓ src/lib/forms.test.ts > createDailyForm > returns the existing form instead of duplicating it for the same date 109ms
+ ✓ src/lib/forms.test.ts > createDailyForm > rejects a missing date or operator name 5ms
+ ✓ src/lib/forms.test.ts > saveFormRecords > upserts only the changed rows and logs 'saved_draft' 132ms
+ ✓ src/lib/forms.test.ts > saveFormRecords > rejects edits once the form is approved 98ms
+ ✓ src/lib/forms.test.ts > saveFormRecords > rejects a change for an employee not on the form 73ms
+ ✓ src/lib/forms.test.ts > saveFormRecords > rejects an empty change list 74ms
+ ✓ src/lib/forms.test.ts > submitForm > moves a draft to pending_review 87ms
+ ✓ src/lib/forms.test.ts > submitForm > allows resubmitting a rejected form and clears the reject reason 115ms
+ ✓ src/lib/forms.test.ts > submitForm > rejects submitting a form that is not draft/rejected 98ms
+ ✓ src/lib/forms.test.ts > approveForm / rejectForm > approves a pending_review form 93ms
+ ✓ src/lib/forms.test.ts > approveForm / rejectForm > rejects approving a form that is not pending_review 70ms
+ ✓ src/lib/forms.test.ts > approveForm / rejectForm > rejects a pending_review form with a reason 97ms
+ ✓ src/lib/forms.test.ts > approveForm / rejectForm > rejects retracting a form that is not pending_review 70ms
+ ✓ src/lib/forms.test.ts > voidAndResubmitForm > voids the approved form and creates a linked, incremented draft with the same records 157ms
+ ✓ src/lib/forms.test.ts > voidAndResubmitForm > rejects voiding a form that is not approved 67ms
+ ✓ src/lib/forms.test.ts > getFormWithRecords — 未填人員的顯示排除 (spec 2026-07-31-attendance-exclude-unfilled) > excludes unfilled records once the form is pending_review 141ms
+ ✓ src/lib/forms.test.ts > getFormWithRecords — 未填人員的顯示排除 (spec 2026-07-31-attendance-exclude-unfilled) > keeps unfilled records visible while the form is draft or rejected 151ms
+ ✓ src/lib/forms.test.ts > getFormWithRecords — 未填人員的顯示排除 (spec 2026-07-31-attendance-exclude-unfilled) > lets a previously-未填 person be filled in after rejection and resubmitted 156ms
+ ✓ src/lib/forms.test.ts > 未填不阻擋送審／核准，資料不被刪除 (T-4, spec 2026-07-31-attendance-exclude-unfilled) > allows submit and approve even when some people are still 未填 152ms
+ ✓ src/lib/forms.test.ts > 未填不阻擋送審／核准，資料不被刪除 (T-4, spec 2026-07-31-attendance-exclude-unfilled) > does not delete or modify the unfilled AttendanceRecord row after approval 172ms
+ ✓ src/lib/forms.test.ts > 工號更正後表單詳情即時反映新值 (spec 2026-07-31-attendance-record-personid-migration AC-4) > shows the corrected employeeId in getFormWithRecords without touching AttendanceRecord 93ms
+ ✓ src/lib/forms.test.ts > saveFormRecords — 擴充欄位格式驗證 (spec 2026-08-01-attendance-extended-fields AC-5) > rejects actualQuantity that is zero, negative, or non-integer 103ms
+ ✓ src/lib/forms.test.ts > saveFormRecords — 擴充欄位格式驗證 (spec 2026-08-01-attendance-extended-fields AC-5) > accepts a positive integer actualQuantity 113ms
+ ✓ src/lib/forms.test.ts > saveFormRecords — 擴充欄位格式驗證 (spec 2026-08-01-attendance-extended-fields AC-5) > rejects overtimeHours outside the 1-10 range or non-integer 103ms
+ ✓ src/lib/forms.test.ts > saveFormRecords — 擴充欄位格式驗證 (spec 2026-08-01-attendance-extended-fields AC-5) > allows compliance rating / 3S performance / overtime hours / actual quantity to stay unselected without error (AC-4) 122ms
+ ✓ src/lib/forms.test.ts > saveFormRecords — 出勤類別未填時鎖定/清空其餘欄位 (spec 2026-08-01-attendance-extended-fields AC-6/AC-7/AC-8) > ignores non-null extended fields and note when categoryId is null, even if the client sends them (AC-8) 141ms
+ ✓ src/lib/forms.test.ts > saveFormRecords — 出勤類別未填時鎖定/清空其餘欄位 (spec 2026-08-01-attendance-extended-fields AC-6/AC-7/AC-8) > clears all extended fields and note when categoryId is changed back to null (AC-7) 194ms
+ ✓ src/lib/forms.test.ts > voidAndResubmitForm — 擴充欄位隨版本鏈延續 (spec 2026-08-01-attendance-extended-fields, NFR-2 回歸) > carries overtimeHours/complianceRatingId/threeSPerformanceId/actualQuantity into the new draft 221ms
+ ✓ src/lib/three-s-performance.test.ts > three-s-performance > creates and lists 3S performance ratings 180ms
+ ✓ src/lib/three-s-performance.test.ts > three-s-performance > does not include a score/weight field on created records 28ms
+ ✓ src/lib/three-s-performance.test.ts > three-s-performance > rejects creating with a duplicate code 38ms
+ ✓ src/lib/three-s-performance.test.ts > three-s-performance > rejects creating without code or name 4ms
+ ✓ src/lib/three-s-performance.test.ts > three-s-performance > listThreeSPerformances(true) only returns active ratings 65ms
+ ✓ src/lib/three-s-performance.test.ts > three-s-performance > updates code/name/sortOrder/isActive 39ms
+ ✓ src/lib/three-s-performance.test.ts > three-s-performance > rejects updating a rating that does not exist 5ms
+ ✓ src/lib/three-s-performance.test.ts > three-s-performance > rejects updating to a duplicate code 39ms
+ ✓ src/lib/three-s-performance.test.ts > three-s-performance > persists via prisma directly as three_s_performance table 27ms
+ ✓ src/lib/compliance-ratings.test.ts > compliance-ratings > creates and lists compliance ratings 178ms
+ ✓ src/lib/compliance-ratings.test.ts > compliance-ratings > does not include a score/weight field on created records 26ms
+ ✓ src/lib/compliance-ratings.test.ts > compliance-ratings > rejects creating with a duplicate code 39ms
+ ✓ src/lib/compliance-ratings.test.ts > compliance-ratings > rejects creating without code or name 4ms
+ ✓ src/lib/compliance-ratings.test.ts > compliance-ratings > listComplianceRatings(true) only returns active ratings 66ms
+ ✓ src/lib/compliance-ratings.test.ts > compliance-ratings > updates code/name/sortOrder/isActive 38ms
+ ✓ src/lib/compliance-ratings.test.ts > compliance-ratings > rejects updating a rating that does not exist 4ms
+ ✓ src/lib/compliance-ratings.test.ts > compliance-ratings > rejects updating to a duplicate code 37ms
+ ✓ src/lib/compliance-ratings.test.ts > compliance-ratings > persists via prisma directly as compliance_rating table 24ms
+ ✓ src/app/api/three-s-performance/route.test.ts > /api/three-s-performance POST auth > returns 401 with no session 121ms
+ ✓ src/app/api/three-s-performance/route.test.ts > /api/three-s-performance POST auth > returns 403 for a foreman session 93ms
+ ✓ src/app/api/three-s-performance/route.test.ts > /api/three-s-performance/[id] PATCH auth > returns 401 with no session 4ms
+ ✓ src/app/api/three-s-performance/route.test.ts > /api/three-s-performance/[id] PATCH auth > returns 403 for a foreman session 47ms
+ ✓ src/app/api/compliance-ratings/route.test.ts > /api/compliance-ratings POST auth > returns 401 with no session 120ms
+ ✓ src/app/api/compliance-ratings/route.test.ts > /api/compliance-ratings POST auth > returns 403 for a foreman session 90ms
+ ✓ src/app/api/compliance-ratings/route.test.ts > /api/compliance-ratings/[id] PATCH auth > returns 401 with no session 4ms
+ ✓ src/app/api/compliance-ratings/route.test.ts > /api/compliance-ratings/[id] PATCH auth > returns 403 for a foreman session 48ms
+
+ Test Files  5 passed (5)
+      Tests  55 passed (55)
+   Start at  10:06:26
+   Duration  7.65s (transform 534ms, setup 56ms, import 1.18s, tests 4.87s, environment 1ms)
+
