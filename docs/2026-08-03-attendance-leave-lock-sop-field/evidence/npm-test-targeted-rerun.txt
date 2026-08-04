@@ -1,0 +1,14 @@
+
+ RUN  v4.1.10 C:/Users/tomof/OneDrive/桌面/Yu/WorkSpace/bonus-system
+
+applying: 20260729000000_init
+applying: 20260729010000_add_user_session
+applying: 20260801000000_add_attendance_extended_fields
+applying: 20260803000000_add_leave_lock_and_sop_field
+done.
+
+ Test Files  4 passed (4)
+      Tests  66 passed (66)
+   Start at  17:23:13
+   Duration  7.78s (transform 473ms, setup 48ms, import 941ms, tests 5.48s, environment 0ms)
+

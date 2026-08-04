@@ -1,0 +1,20 @@
+AC-12: 實際產量欄位寬度改為調整前的一半
+
+測量方式：瀏覽器內以 javascript_tool 對表單填寫頁（/forms/[id]）實際產量 <input type="number">
+執行 getBoundingClientRect().width，於同一次實作 session 內、修改前後各測一次。
+
+1. 調整前（尚未加上 style={{ width: "96px" }} 之前，程式碼原狀）：
+   document.querySelectorAll('input[type="number"]') 前三個 actualQuantity input
+   測得結果：[{"width":192.8000030517578}, {"width":192.8000030517578}, {"width":192.8000030517578}]
+   （此為瀏覽器對無明確 width 設定的 <input type="number"> 的預設渲染寬度，
+   在 .container 表格版面下的實際值，非理論估算。）
+
+2. 調整後（加上 style={{ width: "96px" }}，Turbopack HMR 即時套用）：
+   同一組 input 重新測量：
+   [{"width":96}, {"width":96}, {"width":96}]
+
+192.8 / 2 = 96.4 ≈ 96（採整數 px），與調整後實測值 96 一致，確認 96px 就是調整前寬度
+的一半（誤差來自四捨五入到整數 px，非計算錯誤）。
+
+結論：AC-12 的「寬度為調整前一半」已用調整前後的實際瀏覽器渲染寬度數值覆核，非僅
+依賴實作階段的程式碼註解推斷。

@@ -9,6 +9,10 @@ type LookupItem = {
   name: string;
   sortOrder: number;
   isActive: boolean;
+  // 配合度清單的 API 回應不含此欄位，undefined 視為 falsy，不影響其既有行為
+  // （docs/2026-08-03-attendance-leave-lock-sop-field：僅 3S表現／SOP表現的「正常」
+  // 這一筆為 true，不可編輯或停用，見 src/lib/three-s-performance.ts／sop-performance.ts）。
+  isLocked?: boolean;
 };
 
 type Draft = { code: string; name: string; sortOrder: number };
@@ -144,12 +148,18 @@ export default function LookupListPanel({ apiBase, mode }: Props) {
                 <td>{item.sortOrder}</td>
                 <td>{item.isActive ? "啟用" : "停用"}</td>
                 <td>
-                  {mode === "editable" && (
-                    <button onClick={() => startEdit(item)}>編輯</button>
+                  {item.isLocked ? (
+                    <span className="hint">系統鎖定，不可編輯或停用</span>
+                  ) : (
+                    <>
+                      {mode === "editable" && (
+                        <button onClick={() => startEdit(item)}>編輯</button>
+                      )}
+                      <button onClick={() => toggleActive(item)}>
+                        {item.isActive ? "停用" : "啟用"}
+                      </button>
+                    </>
                   )}
-                  <button onClick={() => toggleActive(item)}>
-                    {item.isActive ? "停用" : "啟用"}
-                  </button>
                 </td>
               </tr>
             )

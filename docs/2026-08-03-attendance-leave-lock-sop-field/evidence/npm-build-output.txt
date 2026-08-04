@@ -1,0 +1,59 @@
+
+> bonus-system@0.1.0 build
+> next build
+
+▲ Next.js 16.2.12 (Turbopack)
+- Environments: .env
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.2s
+  Running TypeScript ...
+  Finished TypeScript in 5.0s ...
+  Collecting page data using 15 workers ...
+  Generating static pages using 15 workers (0/21) ...
+  Generating static pages using 15 workers (5/21) 
+  Generating static pages using 15 workers (10/21) 
+  Generating static pages using 15 workers (15/21) 
+✓ Generating static pages using 15 workers (21/21) in 560ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /accounts
+├ ƒ /api/accounts
+├ ƒ /api/accounts/[id]
+├ ƒ /api/attendance-query/by-month
+├ ƒ /api/auth/login
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/me
+├ ƒ /api/categories
+├ ƒ /api/categories/[id]
+├ ƒ /api/compliance-ratings
+├ ƒ /api/compliance-ratings/[id]
+├ ƒ /api/forms
+├ ƒ /api/forms/[id]
+├ ƒ /api/forms/[id]/approve
+├ ƒ /api/forms/[id]/records
+├ ƒ /api/forms/[id]/reject
+├ ƒ /api/forms/[id]/submit
+├ ƒ /api/forms/[id]/void
+├ ƒ /api/persons
+├ ƒ /api/persons/[employeeId]
+├ ƒ /api/sop-performance
+├ ƒ /api/sop-performance/[id]
+├ ƒ /api/three-s-performance
+├ ƒ /api/three-s-performance/[id]
+├ ○ /attendance-query
+├ ○ /categories
+├ ○ /forms
+├ ƒ /forms/[id]
+├ ○ /login
+└ ○ /persons
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

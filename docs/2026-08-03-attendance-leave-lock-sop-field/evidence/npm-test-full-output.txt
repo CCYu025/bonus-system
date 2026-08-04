@@ -1,0 +1,18 @@
+
+> bonus-system@0.1.0 test
+> vitest run
+
+
+ RUN  v4.1.10 C:/Users/tomof/OneDrive/桌面/Yu/WorkSpace/bonus-system
+
+applying: 20260729000000_init
+applying: 20260729010000_add_user_session
+applying: 20260801000000_add_attendance_extended_fields
+applying: 20260803000000_add_leave_lock_and_sop_field
+done.
+
+ Test Files  13 passed (13)
+      Tests  120 passed (120)
+   Start at  15:47:06
+   Duration  20.56s (transform 827ms, setup 116ms, import 2.24s, tests 14.45s, environment 2ms)
+

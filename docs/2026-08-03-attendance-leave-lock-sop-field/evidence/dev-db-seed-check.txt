@@ -1,0 +1,26 @@
+--- attendance_category ---
+[
+  { code: 'NORMAL', name: '正常出勤', locksExtendedFields: 0 },
+  { code: 'PERSONAL_LEAVE', name: '事假', locksExtendedFields: 1 },
+  { code: 'SICK_LEAVE', name: '病假', locksExtendedFields: 1 },
+  { code: 'ANNUAL_LEAVE', name: '特休', locksExtendedFields: 1 },
+  { code: 'HOLIDAY_OVERTIME', name: '假日加班', locksExtendedFields: 0 }
+]
+--- three_s_performance ---
+[
+  { code: 'NORMAL', name: '正常', isLocked: 1, isActive: 1 },
+  {
+    code: 'MISSING',
+    name: '偶有缺失，經主管口頭提醒後能立即改善。',
+    isLocked: 0,
+    isActive: 1
+  },
+  {
+    code: 'NOT_LISTEN',
+    name: '屢勸不聽，或因環境髒亂影響5S/環安衛檢查。',
+    isLocked: 0,
+    isActive: 1
+  }
+]
+--- sop_performance ---
+[ { code: 'NORMAL_SOP', name: '正常', isLocked: 1, isActive: 1 } ]

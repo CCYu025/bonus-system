@@ -1,16 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { AppError, isPrismaUniqueConstraintError } from "@/lib/errors";
 
-// 3S表現清單——結構同 ComplianceRating，開放透過畫面／API 新增與編輯，
+// SOP表現清單——結構同 ThreeSPerformance／ComplianceRating，開放透過畫面／API 新增與編輯，
 // 不含 score／weight 欄位（評分系統是另一個未來需求）。
-export function listThreeSPerformances(activeOnly = false) {
-  return prisma.threeSPerformance.findMany({
+export function listSopPerformances(activeOnly = false) {
+  return prisma.sopPerformance.findMany({
     where: activeOnly ? { isActive: true } : undefined,
     orderBy: { sortOrder: "asc" },
   });
 }
 
-export async function createThreeSPerformance(input: {
+export async function createSopPerformance(input: {
   code: string;
   name: string;
   sortOrder?: number;
@@ -19,7 +19,7 @@ export async function createThreeSPerformance(input: {
     throw new AppError(400, "業務代碼與名稱為必填");
   }
   try {
-    return await prisma.threeSPerformance.create({
+    return await prisma.sopPerformance.create({
       data: {
         code: input.code.trim(),
         name: input.name.trim(),
@@ -34,13 +34,13 @@ export async function createThreeSPerformance(input: {
   }
 }
 
-export async function updateThreeSPerformance(
+export async function updateSopPerformance(
   id: string,
   input: { code?: string; name?: string; sortOrder?: number; isActive?: boolean }
 ) {
-  const existing = await prisma.threeSPerformance.findUnique({ where: { id } });
+  const existing = await prisma.sopPerformance.findUnique({ where: { id } });
   if (!existing) {
-    throw new AppError(404, "找不到3S表現選項");
+    throw new AppError(404, "找不到SOP表現選項");
   }
   // AC-8：「正常」為系統鎖定選項，不可編輯或停用（涵蓋 isActive 切換與其餘欄位編輯）。
   if (existing.isLocked) {
@@ -53,7 +53,7 @@ export async function updateThreeSPerformance(
     throw new AppError(400, "名稱不可為空");
   }
   try {
-    return await prisma.threeSPerformance.update({
+    return await prisma.sopPerformance.update({
       where: { id },
       data: {
         code: input.code?.trim(),

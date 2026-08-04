@@ -61,8 +61,11 @@ model AttendanceCategory {
   name      String
   sortOrder Int      @default(0)
   isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // 事假／病假／特休為 true（docs/2026-08-03-attendance-leave-lock-sop-field）：
+  // 該類別的記錄同列鎖定加班時數／配合度／3S表現／SOP表現／實際產量（備註不受影響）。
+  locksExtendedFields Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   records AttendanceRecord[]
 
@@ -93,12 +96,34 @@ model ThreeSPerformance {
   name      String
   sortOrder Int      @default(0)
   isActive  Boolean  @default(true)
+  // 標記「正常」這筆為系統預設值來源（docs/2026-08-03-attendance-leave-lock-sop-field）：
+  // 不可被停用／編輯／刪除（見 src/lib/three-s-performance.ts 的守門判斷），
+  // 其餘選項維持既有開放 CRUD，不受影響。
+  isLocked  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   records AttendanceRecord[]
 
   @@map("three_s_performance")
+}
+
+// SOP表現 — 結構同 ThreeSPerformance／ComplianceRating，可透過畫面新增/編輯，
+// 不含分數/權重欄位（docs/2026-08-03-attendance-leave-lock-sop-field）。
+model SopPerformance {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  // 標記「正常」這筆為系統預設值來源，不可被停用／編輯／刪除，比照 ThreeSPerformance.isLocked。
+  isLocked  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  records AttendanceRecord[]
+
+  @@map("sop_performance")
 }
 
 enum FormStatus {
@@ -161,6 +186,11 @@ model AttendanceRecord {
   threeSPerformanceId String?
   threeSPerformance   ThreeSPerformance?  @relation(fields: [threeSPerformanceId], references: [id])
   actualQuantity      Int? // 實際產量，僅允許正整數
+
+  // docs/2026-08-03-attendance-leave-lock-sop-field 新增，結構與上面四欄同一套規則：
+  // categoryId 為 null，或 category.locksExtendedFields 為 true 時強制清空。
+  sopPerformanceId String?
+  sopPerformance   SopPerformance? @relation(fields: [sopPerformanceId], references: [id])
 
   voided Boolean @default(false)
 

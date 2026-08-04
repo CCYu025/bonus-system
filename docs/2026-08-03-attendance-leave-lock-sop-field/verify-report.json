@@ -1,0 +1,114 @@
+[
+  {
+    "ac_id": "AC-1",
+    "given_when_then": "Given 某人員該列出勤類別選擇為事假、病假或特休其中之一 / When 使用者檢視或嘗試編輯該列 / Then 加班時數、配合度、3S表現、SOP表現、實際產量皆呈現不可編輯狀態；備註欄位維持可編輯",
+    "verification_method": "static_review",
+    "result": "PASS",
+    "evidence": "重驗（含 2026-08-04 T-12 改動後的現行程式碼）：src/app/forms/[id]/page.tsx 第373-377行 `hardLocked = currentCategoryId === null; softLocked = !hardLocked && isLockedCategoryId(currentCategoryId); otherFieldsEditable = editable && !hardLocked && !softLocked; noteEditable = editable && !hardLocked;`。實際產量(第402-423行，T-12後已移至出勤類別之後)/加班時數(424-447)/配合度(448-467)/3S表現(468-507)/SOP表現(508-544) 五欄皆 `disabled={!otherFieldsEditable}`；備註(545-555) 為 `disabled={!noteEditable}`（僅 hardLocked 才鎖，softLocked 時仍可編輯）。scripts/seed.cjs 第40-42行 UPDATE locksExtendedFields=1 WHERE code IN ('PERSONAL_LEAVE','SICK_LEAVE','ANNUAL_LEAVE')；實際查詢目前 prisma/dev.db 確認種子資料已套用（見 evidence/dev-db-current-check.txt：PERSONAL_LEAVE/SICK_LEAVE/ANNUAL_LEAVE 三筆 locksExtendedFields=1，其餘為0）。後端資料層以 pytest 佐證一致：`npx vitest run src/lib/forms.test.ts` 66 tests 全通過（見 evidence/npm-test-targeted-rerun.txt），其中「keeps categoryId as the leave-locked category when only note is saved」等案例證明請假鎖定類的資料層確實鎖定五個擴充欄位、備註不受影響，欄位調換順序（T-12）未影響此鎖定邏輯本身（鎖定判斷與欄位順序無關）。"
+  },
+  {
+    "ac_id": "AC-2",
+    "given_when_then": "Given 某列出勤類別原為可自由填寫的類別，且加班時數／配合度／3S表現／SOP表現／實際產量至少一項已填值 / When 使用者將該列出勤類別改為事假／病假／特休其中之一並儲存 / Then 該列加班時數、配合度、3S表現、SOP表現、實際產量全部清空為 null；備註欄位的既有值不受影響、維持可編輯",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/forms.test.ts 測試「clears extended fields but keeps note when switching from an unlocked category to a leave-locked one (AC-2)」：先以非鎖定類別填入 overtimeHours=3/complianceRatingId/threeSPerformanceId/sopPerformanceId/actualQuantity=10/note=\"原始備註\"，再送出 categoryId 改為請假鎖定類別的變更，斷言讀回五個擴充欄位皆為 null、note 維持 \"原始備註\"。`npx vitest run src/lib/forms.test.ts` 66 tests 全通過（見 evidence/npm-test-targeted-rerun.txt）。對應現行實作 src/lib/forms.ts 第178行 `softLocked = ... categoryLockMap.get(...) === true` 與第181行 `note = hardLocked ? null : change.note ?? null`（僅 hardLocked 才清備註）；此段後端邏輯自上次驗收後未被 T-12 的前端/CSS 調整觸碰。"
+  },
+  {
+    "ac_id": "AC-3",
+    "given_when_then": "Given 某人員該列出勤類別為事假／病假／特休其中之一 / When 客戶端直接呼叫表單記錄更新 API，嘗試寫入非空的加班時數／配合度／3S表現／SOP表現／實際產量 / Then API 拒絕該筆欄位寫入，不會被寫入資料庫；同一請求中的備註欄位寫入不受影響，可正常儲存",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/forms.test.ts 測試「ignores non-null extended fields (including sopPerformanceId) but keeps note when categoryId is a leave-locked category (AC-3)」：直接呼叫 saveFormRecords（等同繞過前端）帶入非空的 overtimeHours/complianceRatingId/threeSPerformanceId/sopPerformanceId/actualQuantity 與 note=\"請假原因\"，斷言讀回五個擴充欄位皆為 null、note 保留為 \"請假原因\"。`npx vitest run src/lib/forms.test.ts` 執行通過（見 evidence/npm-test-targeted-rerun.txt）。對應實作 src/lib/forms.ts 第178-186行：`softLocked` 判斷獨立於前端傳入值，寫入前一律以 `locked ? null : ...` 覆寫，資料庫寫入前即完成防線判斷，符合 NFR-1「不依賴前端限制作為唯一防線」。"
+  },
+  {
+    "ac_id": "AC-4",
+    "given_when_then": "Given 開發者在「SOP表現」子分頁新增一筆選項 / When 輸入 code／name 並儲存 / Then 該選項出現在出勤表單填寫頁對應的下拉清單中，且該清單資料結構不含任何分數／權重欄位",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/sop-performance.test.ts 全部 12 項測試通過（見 evidence/npm-test-targeted-rerun.txt），其中「creates and lists SOP performance options」驗證新增後可經 listSopPerformances() 取回；「does not include a score/weight field on created records」明確斷言不含 score/weight。src/app/api/sop-performance/route.test.ts 4 項 401/403 權限測試通過。prisma/schema.prisma 第113-127行 SopPerformance model 定義確認不含 score/weight 欄位。前端串接以 static_review 補充：src/app/forms/[id]/page.tsx 第163-165行載入時呼叫 `authFetch(\"/api/sop-performance?activeOnly=true\")`，第508-544行渲染為對應 <select> 選項（T-12 後欄位位置調整為第7欄，但資料來源與渲染邏輯不變）。"
+  },
+  {
+    "ac_id": "AC-5",
+    "given_when_then": "SOP表現欄位顯示於3S表現之後（AMENDED 2026-08-04：實際產量欄位移至出勤類別與加班時數之間）/ Given 使用者進入出勤表單填寫頁（可編輯或唯讀檢視皆同） / When 檢視表格欄位順序 / Then 欄位順序為出勤類別／實際產量／加班時數／配合度／3S表現／SOP表現／備註；SOP表現緊接在3S表現之後",
+    "verification_method": "static_review",
+    "result": "PASS",
+    "evidence": "本次重驗特別針對修訂後的 Then 子句核對，未沿用舊版認知。逐行審查 src/app/forms/[id]/page.tsx 表格 <thead>（第354-367行）：`<th>工號</th><th>姓名</th><th>出勤類別</th><th>實際產量</th><th>加班時數</th><th>配合度</th><th>3S表現</th><th>SOP表現</th><th>備註</th>`，第359-360行明確標註 `AC-5（AMENDED 2026-08-04）：實際產量為每日必填欄位，優先度高於選填的加班時數等欄位，移至出勤類別之後`，與 spec.md AC-5 修訂後 Then 子句「出勤類別／實際產量／加班時數／配合度／3S表現／SOP表現／備註」逐字一致。<tbody> 每列 <td> 渲染順序（第380-556行）：出勤類別(383-401)→實際產量(402-423)→加班時數(424-447)→配合度(448-467)→3S表現(468-507)→SOP表現(508-544)→備註(545-555)，與表頭順序完全一致；唯讀模式（editable=false 分支，同一組 <td> 內三元運算子的 else 分支）沿用同一份 JSX 結構，故可編輯與唯讀兩種檢視模式順序必然一致，不需另外核對。plan.md T-12「表頭 th 與每列 td 的渲染順序，將實際產量移到出勤類別之後、加班時數之前」與 traceability table `AC-5（AMENDED 2026-08-04）| 實際產量欄位移至出勤類別與加班時數之間 | T-12` 已對應落實。"
+  },
+  {
+    "ac_id": "AC-6",
+    "given_when_then": "Given 出勤表單填寫頁中，某列出勤類別已選且非鎖定類別 / When 開啟該列的3S表現或SOP表現下拉選單 / Then 選項僅包含清單中目前啟用（active）的各項名稱，不包含「未選」這個選項",
+    "verification_method": "static_review",
+    "result": "PASS",
+    "evidence": "src/app/forms/[id]/page.tsx：3S表現下拉（第468-507行）與SOP表現下拉（第508-544行）皆無 `<option value=\"\">未選</option>`（對照配合度下拉第457行仍保留 `<option value=\"\">未選</option>`，證明本次調整僅針對3S表現/SOP表現，未影響配合度，對應 AC-9）。兩者皆僅在目前值為 null 時額外渲染一個 `disabled hidden` 佔位 <option value=\"\">（未設定）</option>（第493-497、530-534行），使用者無法透過下拉手動選取。選項來源 threeSPerformances/sopPerformances state 皆以 `activeOnly=true` 查詢字串取得（第160-165行），對應 src/lib/sop-performance.ts／three-s-performance.ts listXxx(activeOnly) 在 activeOnly=true 時 `where: { isActive: true }`，經 src/lib/sop-performance.test.ts「listSopPerformances(true) only returns active options」測試驗證通過（見 evidence/npm-test-targeted-rerun.txt）。此段程式碼未被 T-12 改動（T-12 僅調整欄位順序與新增 style/title 屬性，未動到 option 清單邏輯）。"
+  },
+  {
+    "ac_id": "AC-7",
+    "given_when_then": "Given 某列出勤類別原為未選或請假鎖定類別（3S表現／SOP表現因鎖定規則為 null） / When 使用者將該列出勤類別切換為非鎖定類別，且未另外指定3S表現／SOP表現的值 / Then 3S表現、SOP表現欄位自動帶入各自清單中「正常」選項的 id，不維持 null",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/forms.test.ts 三項測試皆執行通過（見 evidence/npm-test-targeted-rerun.txt）：「defaults threeSPerformanceId/sopPerformanceId to the locked 「正常」 option when switching from null to an unlocked category without specifying them」、「defaults threeSPerformanceId/sopPerformanceId when switching from a leave-locked category to an unlocked one」皆斷言讀回值等於 isLocked=true 選項 id；「does not override an explicitly specified threeSPerformanceId/sopPerformanceId when unlocking」驗證明確指定值時不被覆蓋。對應實作 src/lib/forms.ts 第154-155行查詢 isLocked=true 的 defaultThreeS/defaultSop，第190-197行 `if (!locked && isLockedCategory(record.categoryId)) { ... }`。前端鏡射邏輯 src/app/forms/[id]/page.tsx 第219-230行同一套判斷，static_review 確認邏輯一致，未受 T-12 影響。"
+  },
+  {
+    "ac_id": "AC-8",
+    "given_when_then": "Given 開發者進入3S表現或SOP表現子分頁 / When 檢視或嘗試操作清單中的「正常」這一筆選項 / Then 系統不提供停用／編輯／刪除該選項的操作入口，且後端對此選項的停用／編輯／刪除請求一律拒絕；其餘選項的操作方式不受影響",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "後端防線：src/lib/sop-performance.test.ts 與 src/lib/three-s-performance.test.ts 的「rejects editing a locked (isLocked=true) option」「rejects deactivating a locked (isLocked=true) option」「still allows editing a non-locked option (regression)」共6項測試全通過（見 evidence/npm-test-targeted-rerun.txt），對應 src/lib/sop-performance.ts 第45-48行與 src/lib/three-s-performance.ts 第45-48行皆在 update 前檢查 `existing.isLocked` 一律 throw 403。刪除入口：src/app/api/sop-performance/、src/app/api/three-s-performance/ 皆無 DELETE method 匯出，系統本身無刪除功能。UI 操作入口：static_review src/app/categories/lookup-list-panel.tsx 第151-163行 `item.isLocked ? <span>系統鎖定，不可編輯或停用</span> : (編輯/停用按鈕)`。實際查詢目前 prisma/dev.db 確認「正常」選項（three_s_performance code=NORMAL、sop_performance code=NORMAL_SOP）isLocked=1、isActive=1（見 evidence/dev-db-current-check.txt），固定存在且維持啟用。"
+  },
+  {
+    "ac_id": "AC-9",
+    "given_when_then": "Given 出勤類別已選且非鎖定類別 / When 使用者檢視配合度下拉選單 / Then 配合度選單仍包含「未選」選項，行為與本次調整前一致，不受3S表現／SOP表現規則變更影響",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/forms.test.ts 測試「does not default complianceRatingId — it stays whatever the caller sent, including null (AC-9)」執行通過（見 evidence/npm-test-targeted-rerun.txt）。static_review 確認：src/lib/compliance-ratings.ts 未新增 isLocked 欄位，prisma/schema.prisma 第78-90行 ComplianceRating model 未變動；src/app/forms/[id]/page.tsx 第448-467行配合度下拉仍保留 `<option value=\"\">未選</option>`（第457行），且未被 T-12 加上任何 maxWidth/title 限制（T-12 僅調整3S表現／SOP表現／實際產量／表格外層，未觸碰配合度欄位程式碼），與3S表現/SOP表現下拉形成對照，確認本次改動未影響配合度。"
+  },
+  {
+    "ac_id": "AC-10",
+    "given_when_then": "Given 某人員該列出勤類別為未選（null） / When 使用者檢視或嘗試編輯該列 / Then SOP表現、3S表現欄位與加班時數、配合度、實際產量、備註同樣呈現不可編輯狀態，且值為 null（不套用AC-7的「預設正常」規則，鎖定清空規則優先）",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/forms.test.ts 既有測試「ignores non-null extended fields and note when categoryId is null, even if the client sends them (AC-8)」與「clears all extended fields and note when categoryId is changed back to null (AC-7)」執行通過（見 evidence/npm-test-targeted-rerun.txt）。對應實作 src/lib/forms.ts 第175行 `hardLocked = change.categoryId === null` 與第185-186行 `threeSPerformanceId = locked ? null : ...; sopPerformanceId = locked ? null : ...`，且第190行 `if (!locked && ...)` 的自動預設判斷式本身即排除了 hardLocked 情境，鎖定清空規則優先於AC-7預設規則。前端一致性：src/app/forms/[id]/page.tsx 第373-377行 hardLocked 時 SOP表現/3S表現與加班時數/配合度/實際產量同樣 `disabled={!otherFieldsEditable}`，此段判斷式與欄位順序無關，T-12 的欄位重排未影響鎖定範圍計算。"
+  },
+  {
+    "ac_id": "AC-11",
+    "given_when_then": "Given 本次功能上線前已存在、3S表現欄位為 null 的出勤記錄（任何狀態） / When 本次功能上線後，使用者查詢或檢視該筆既有記錄 / Then 該記錄的3S表現欄位維持原本的 null 值，不因新規則被自動回填或改動",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/forms.test.ts 測試「does not backfill an existing null threeSPerformanceId when categoryId is not part of the change (AC-11/FR-12)」執行通過（見 evidence/npm-test-targeted-rerun.txt）：以 `prisma.attendanceRecord.updateMany` 略過 saveFormRecords 直接模擬既有資料，先以 getFormWithRecords() 讀取斷言仍為 null，再呼叫 saveFormRecords 僅修改 note、categoryId 維持原值不變，斷言 threeSPerformanceId 仍為 null。對應實作 src/lib/forms.ts 第190行 `if (!locked && isLockedCategory(record.categoryId))`——record.categoryId 讀取的是異動前 DB 現有值，本情境下該值已是非鎖定類別（wasLocked=false），故不觸發預設覆蓋，符合 FR-12。"
+  },
+  {
+    "ac_id": "AC-12",
+    "given_when_then": "Given 使用者進入出勤表單填寫頁（編輯模式） / When 檢視實際產量輸入欄位 / Then 該欄位的顯示寬度為調整前寬度的一半（純視覺調整），資料驗證邏輯（僅接受正整數）不受影響",
+    "verification_method": "manual_log",
+    "result": "PASS",
+    "evidence": "沿用上次驗收階段以瀏覽器 javascript_tool 對 /forms/[id] 的實際產量 <input type=\"number\"> 執行 getBoundingClientRect().width 之實測數據（見 evidence/ac12-actual-quantity-width-measurement.txt）：調整前測得 192.8px；加上 style={{ width: \"96px\" }} 後重新測量為 96px，192.8/2=96.4≈96，與實測後值一致。本次重驗以 static_review 核對現行程式碼 src/app/forms/[id]/page.tsx 第404-409行，`style={{ width: \"96px\" }}` 仍原封不動保留，T-12（實際產量欄位順序移動）未變動該行內的 style 設定，僅改變此 <td> 在表格中的相對位置（第8欄→第4欄），寬度數值本身不受影響。資料驗證邏輯（`min=\"1\" step=\"1\"`）未變動，另以 pytest 佐證：src/lib/forms.test.ts「rejects actualQuantity that is zero, negative, or non-integer」「accepts a positive integer actualQuantity」於本次重驗中重新執行仍通過（見 evidence/npm-test-targeted-rerun.txt）。本次重驗未偵測到 style 數值本身有異動（僅欄位順序改變），故沿用前次瀏覽器實測數據並以程式碼比對佐證數值未受影響，非重新截圖。"
+  },
+  {
+    "ac_id": "AC-13",
+    "given_when_then": "（2026-08-04 新增）表格橫向捲動、3S表現/SOP表現欄寬限制 / Given 使用者進入出勤表單填寫頁，視窗寬度小於表格實際寬度 / When 檢視表格 / Then 表格可橫向捲動、不裁切任何欄位資料；3S表現／SOP表現下拉欄位寬度限制為調整前寬度的一半以下，內容過長時以省略號截斷並可透過 hover 或展開下拉查看完整文字",
+    "verification_method": "manual_log",
+    "result": "PASS",
+    "evidence": "verifier subagent 無瀏覽器工具，先以逐行程式碼審查 + 實際 DB 資料佐證：(1) 橫向捲動容器：src/app/forms/[id]/page.tsx 第351-352行 `<div className=\"table-scroll\">` 包住表格，第561行對應關閉；src/app/globals.css 第92-95行 `.table-scroll { overflow-x: auto; }`，未對表格內容做任何 max-width/裁切樣式，符合『不裁切任何欄位資料』。(2) 3S表現／SOP表現欄寬限制：第468-484行 3S表現 <select> 帶 `style={{ maxWidth: \"150px\", overflow: \"hidden\", textOverflow: \"ellipsis\", whiteSpace: \"nowrap\" }}` 與 `title={threeSPerformances.find(...).name}`；第508-524行 SOP表現 <select> 帶完全相同結構的 maxWidth:150px 與對應 title。(3) 實際查詢目前 prisma/dev.db（見 evidence/dev-db-current-check.txt）確認清單中存在長句選項，證實截斷機制確有實際使用情境。(4) 下拉選單展開時仍完整顯示所有選項全文，未對 option 本身加截斷樣式。額外以主控 session（有瀏覽器工具）在 T-12 實作完成當下對實際渲染頁面執行 javascript_tool 動態量測，補齊 static_review 無法涵蓋的渲染行為（見 evidence/ac13-table-scroll-live-browser-check.txt）：桌面 1280px 視窗下 3S表現/SOP表現 select 實測寬度均為 150px（調整前334px／386px，皆低於一半）；縮小至 800px 視窗（視窗寬度小於表格實際寬度的情境）時，.table-scroll 容器 clientWidth=753px、scrollWidth=1078px（表格內容完整保留、未被裁切），且 document.documentElement.scrollWidth=785px < 800px 視窗寬度，證實溢出被正確限制在表格自身的捲動容器內、未影響整體頁面版面。程式碼審查與實際動態渲染量測結論一致。"
+  },
+  {
+    "ac_id": "NFR-1",
+    "given_when_then": "標準：對任一鎖定情境（出勤類別為 null 或 locksExtendedFields=true）送出的任何 API 請求，若嘗試寫入非空的鎖定欄位值，後端一律拒絕或忽略，不依賴前端限制作為唯一防線（對應 AC-3）",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "與 AC-3/AC-10 同一組測試（src/lib/forms.test.ts「ignores non-null extended fields and note when categoryId is null...(AC-8)」與「ignores non-null extended fields (including sopPerformanceId) but keeps note when categoryId is a leave-locked category (AC-3)」）皆直接呼叫 lib 層 saveFormRecords（略過前端 UI 與 disabled 屬性），驗證後端獨立於前端強制執行兩種鎖定規則，本次重驗執行仍通過（見 evidence/npm-test-targeted-rerun.txt）。程式碼審查確認判斷式（src/lib/forms.ts 第175-179行 hardLocked/softLocked/locked）位於 saveFormRecords 函式內、資料庫寫入之前，非前端邏輯，且 T-12 純前端/CSS 調整未觸及此檔案。"
+  },
+  {
+    "ac_id": "NFR-2",
+    "given_when_then": "標準：sopPerformanceId 為可為 null 的欄位，locksExtendedFields 為布林欄位並有預設值 false，既有已核准／已送審表單的既有記錄可正常讀取與顯示，不需回填資料即可通過既有測試",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "prisma/schema.prisma 第66行 `locksExtendedFields Boolean @default(false)`、第192行 `sopPerformanceId String?`（nullable）確認欄位定義符合標準。本次重驗完整回歸：`npm test` 13 test files / 120 tests 全數 PASS（見 evidence/npm-test-output.txt），涵蓋既有回歸測試（submitForm、approveForm/rejectForm、voidAndResubmitForm、getFormWithRecords 未填人員排除、8/1既有擴充欄位測試等）在新增本次欄位／規則與 T-12 前端調整後仍全數通過，未回填舊資料即可通過。「carries sopPerformanceId into the new draft」驗證 voidAndResubmitForm 版本鏈延續新欄位資料不遺失，於本次重驗中重新執行仍通過（見 evidence/npm-test-targeted-rerun.txt）。"
+  },
+  {
+    "ac_id": "NFR-3",
+    "given_when_then": "標準：無論操作者角色為何，後端對 ThreeSPerformance／SopPerformance 中「正常」選項的停用／編輯／刪除請求一律拒絕（對應 AC-8）",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "與 AC-8 同一組測試：src/lib/sop-performance.test.ts／src/lib/three-s-performance.test.ts 的「rejects editing a locked (isLocked=true) option」「rejects deactivating a locked (isLocked=true) option」共4項測試本次重驗重新執行仍通過（見 evidence/npm-test-targeted-rerun.txt），皆未指定特定角色即可觸發 403（守門邏輯 src/lib/sop-performance.ts／three-s-performance.ts 第45-48行位於角色檢查之後、資料存取之前，對任何通過角色檢查的操作者一律生效，不因角色不同而有差異）；系統無 DELETE 端點，刪除操作在缺乏入口前提下自動拒絕。"
+  }
+]

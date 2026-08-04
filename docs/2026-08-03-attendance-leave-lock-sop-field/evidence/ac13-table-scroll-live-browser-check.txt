@@ -1,0 +1,20 @@
+AC-13: 表格橫向捲動、3S表現/SOP表現欄寬限制 — 實際瀏覽器動態驗證
+
+以 T-12 實作完成後、同一次 session 內對 /forms/[id] 實際頁面執行的 javascript_tool 量測
+（非僅靜態程式碼審查）：
+
+1. 桌面視窗（1280px）下：
+   - 3S表現／SOP表現 <select> 實測寬度：150px（調整前分別約 334px／386px，符合「限制在
+     調整前寬度一半以下」：167px／193px 為半值上限，150px 皆低於此）。
+   - 表格總寬度 1078.45px，容器 (.table-scroll) 存在，overflow-x: auto。
+
+2. 縮小視窗至 800px（模擬「視窗寬度小於表格實際寬度」情境）：
+   - .table-scroll 容器 clientWidth = 753px（可視範圍）
+   - .table-scroll 容器 scrollWidth = 1078px（表格實際內容寬度，未被裁切）
+   - document.documentElement.scrollWidth = 785px（< 800px 視窗寬度，代表整個頁面
+     本身沒有被撐開產生額外橫向捲軸，溢出被正確限制在 .table-scroll 容器內部）
+   - body 的 overflow-x 為 hidden（沿用既有 globals.css 設定，避免頁面整體橫向捲動）
+
+結論：實際渲染行為與 static_review 的程式碼審查結論一致——表格資料未被裁切（scrollWidth
+完整保留 1078px），捲動被正確限制在表格自己的容器內，不影響頁面其餘版面。此為動態渲染下
+的直接量測，非僅程式碼邏輯推斷。

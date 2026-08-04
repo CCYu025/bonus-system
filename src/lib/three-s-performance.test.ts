@@ -87,4 +87,36 @@ describe("three-s-performance", () => {
     const rows = await prisma.threeSPerformance.findMany();
     expect(rows).toHaveLength(1);
   });
+
+  // AC-8（docs/2026-08-03-attendance-leave-lock-sop-field）：「正常」為系統鎖定
+  // 選項，不可編輯或停用。
+  it("rejects editing a locked (isLocked=true) option", async () => {
+    const rating = await createThreeSPerformance({ code: "NORMAL", name: "正常" });
+    await prisma.threeSPerformance.update({
+      where: { id: rating.id },
+      data: { isLocked: true },
+    });
+
+    await expect(
+      updateThreeSPerformance(rating.id, { name: "改名" })
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("rejects deactivating a locked (isLocked=true) option", async () => {
+    const rating = await createThreeSPerformance({ code: "NORMAL", name: "正常" });
+    await prisma.threeSPerformance.update({
+      where: { id: rating.id },
+      data: { isLocked: true },
+    });
+
+    await expect(
+      updateThreeSPerformance(rating.id, { isActive: false })
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("still allows editing a non-locked option (regression)", async () => {
+    const rating = await createThreeSPerformance({ code: "NORMAL", name: "正常" });
+    const updated = await updateThreeSPerformance(rating.id, { name: "正常2" });
+    expect(updated.name).toBe("正常2");
+  });
 });

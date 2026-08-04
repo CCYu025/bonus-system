@@ -29,6 +29,7 @@ export async function getFormWithRecords(formId: string) {
           category: true,
           complianceRating: true,
           threeSPerformance: true,
+          sopPerformance: true,
         },
         orderBy: { person: { employeeId: "asc" } },
       },
@@ -119,6 +120,7 @@ export type RecordChange = {
   complianceRatingId?: string | null;
   threeSPerformanceId?: string | null;
   actualQuantity?: number | null;
+  sopPerformanceId?: string | null;
 };
 
 // T-7: upsert only the rows the caller actually changed, so concurrent
@@ -139,6 +141,24 @@ export async function saveFormRecords(
     throw new AppError(400, "沒有變更內容");
   }
 
+  // docs/2026-08-03-attendance-leave-lock-sop-field：鎖定範圍分兩層——
+  // categoryLockMap 供判斷某個 categoryId 是否屬於「請假鎖定類」
+  // （AttendanceCategory.locksExtendedFields，事假/病假/特休）。
+  const categories = await prisma.attendanceCategory.findMany({
+    select: { id: true, locksExtendedFields: true },
+  });
+  const categoryLockMap = new Map(categories.map((c) => [c.id, c.locksExtendedFields]));
+
+  // AC-7/FR-10：出勤類別由鎖定切為可自由填寫類別時，3S表現／SOP表現若未指定值，
+  // 自動帶入各自清單中 isLocked（「正常」）那筆的 id。查無則不預設，維持 null。
+  const defaultThreeS = await prisma.threeSPerformance.findFirst({ where: { isLocked: true } });
+  const defaultSop = await prisma.sopPerformance.findFirst({ where: { isLocked: true } });
+
+  function isLockedCategory(categoryId: string | null): boolean {
+    if (categoryId === null) return true;
+    return categoryLockMap.get(categoryId) === true;
+  }
+
   await prisma.$transaction(async (tx) => {
     for (const change of changes) {
       const person = await tx.person.findUnique({ where: { employeeId: change.employeeId } });
@@ -151,15 +171,30 @@ export async function saveFormRecords(
         throw new AppError(404, `表單中找不到工號 ${change.employeeId}`);
       }
 
-      // AC-6/AC-7/AC-8：出勤類別為未填（null）時，同列其餘欄位（含備註）一律
-      // 清空，並忽略 client 傳入的任何非空值——這是唯一的資料完整性防線，不能
-      // 只靠前端 disable（NFR-1）。
-      const locked = change.categoryId === null;
-      const note = locked ? null : change.note ?? null;
+      // AC-6/AC-8：出勤類別為未填（null）時，同列其餘欄位（含備註）一律清空。
+      const hardLocked = change.categoryId === null;
+      // AC-1/AC-2/AC-3：出勤類別為請假鎖定類時，除備註外的其餘擴充欄位清空，
+      // 備註維持可編輯——這是對既有單一鎖定規則的擴充，不能只靠前端 disable（NFR-1）。
+      const softLocked = !hardLocked && categoryLockMap.get(change.categoryId as string) === true;
+      const locked = hardLocked || softLocked;
+
+      const note = hardLocked ? null : change.note ?? null;
       const overtimeHours = locked ? null : change.overtimeHours ?? null;
       const complianceRatingId = locked ? null : change.complianceRatingId ?? null;
-      const threeSPerformanceId = locked ? null : change.threeSPerformanceId ?? null;
       const actualQuantity = locked ? null : change.actualQuantity ?? null;
+      let threeSPerformanceId = locked ? null : change.threeSPerformanceId ?? null;
+      let sopPerformanceId = locked ? null : change.sopPerformanceId ?? null;
+
+      // AC-7/FR-10：僅在「本次異動後為非鎖定」且「異動前（DB 現有的 categoryId）
+      // 為鎖定狀態」時才補預設值，且只在呼叫端沒有明確指定值（維持 null）時才覆蓋。
+      if (!locked && isLockedCategory(record.categoryId)) {
+        if (threeSPerformanceId === null && defaultThreeS) {
+          threeSPerformanceId = defaultThreeS.id;
+        }
+        if (sopPerformanceId === null && defaultSop) {
+          sopPerformanceId = defaultSop.id;
+        }
+      }
 
       // AC-5：實際產量僅接受正整數；加班時數僅接受 1–10 整數（同一欄位的防呆，
       // UI 的下拉本身不會送出不合法值，但後端仍須擋，見 NFR-1）。
@@ -182,6 +217,7 @@ export async function saveFormRecords(
           complianceRatingId,
           threeSPerformanceId,
           actualQuantity,
+          sopPerformanceId,
         },
       });
     }
@@ -319,6 +355,7 @@ export async function voidAndResubmitForm(formId: string, operatorName: string) 
             complianceRatingId: r.complianceRatingId,
             threeSPerformanceId: r.threeSPerformanceId,
             actualQuantity: r.actualQuantity,
+            sopPerformanceId: r.sopPerformanceId,
             activeKey: `${r.personId}:${form.date}`,
           })),
         },

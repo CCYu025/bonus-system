@@ -22,6 +22,12 @@ const TABS = [
     apiBase: "/api/three-s-performance",
     mode: "editable" as const,
   },
+  {
+    key: "sop",
+    label: "SOP表現",
+    apiBase: "/api/sop-performance",
+    mode: "editable" as const,
+  },
 ];
 
 export default function CategoriesPage() {

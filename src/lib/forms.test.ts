@@ -32,6 +32,25 @@ async function seedThreeSPerformance(code = "NORMAL", name = "正常") {
   return prisma.threeSPerformance.create({ data: { code, name } });
 }
 
+async function seedSopPerformance(code = "NORMAL", name = "正常") {
+  return prisma.sopPerformance.create({ data: { code, name } });
+}
+
+// docs/2026-08-03-attendance-leave-lock-sop-field：請假鎖定類（例如事假）。
+async function seedLeaveCategory(code = "PERSONAL_LEAVE", name = "事假") {
+  return prisma.attendanceCategory.create({
+    data: { code, name, locksExtendedFields: true },
+  });
+}
+
+async function seedLockedThreeSPerformance(code = "NORMAL", name = "正常") {
+  return prisma.threeSPerformance.create({ data: { code, name, isLocked: true } });
+}
+
+async function seedLockedSopPerformance(code = "NORMAL", name = "正常") {
+  return prisma.sopPerformance.create({ data: { code, name, isLocked: true } });
+}
+
 describe("createDailyForm", () => {
   // AC-4 / T-6
   it("creates a draft with every active person defaulted to 未填, and logs 'created'", async () => {
@@ -480,5 +499,217 @@ describe("voidAndResubmitForm — 擴充欄位隨版本鏈延續 (spec 2026-08-0
     expect(newE001?.complianceRatingId).toBe(complianceRating.id);
     expect(newE001?.threeSPerformanceId).toBe(threeS.id);
     expect(newE001?.actualQuantity).toBe(20);
+  });
+
+  // docs/2026-08-03-attendance-leave-lock-sop-field T-6: sopPerformanceId 是手動列出
+  // 的欄位映射，容易被悄悄漏掉，跟既有四欄一起回歸。
+  it("carries sopPerformanceId into the new draft", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    const sop = await seedSopPerformance();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+    await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id, sopPerformanceId: sop.id },
+    ]);
+    await submitForm(form.id, "班長甲");
+    await approveForm(form.id, "主管");
+
+    const newForm = await voidAndResubmitForm(form.id, "班長甲");
+    const newE001 = newForm?.records.find((r) => r.employeeId === "E001");
+    expect(newE001?.sopPerformanceId).toBe(sop.id);
+  });
+});
+
+describe("saveFormRecords — 請假鎖定類鎖定除備註外的擴充欄位 (spec 2026-08-03-attendance-leave-lock-sop-field AC-1/AC-2/AC-3/AC-10)", () => {
+  // AC-3/AC-10 的後端防線：請假鎖定類直接呼叫 API 帶入非空值，應被忽略；
+  // 備註不受影響，這是跟「未填」規則的關鍵差異。
+  it("ignores non-null extended fields (including sopPerformanceId) but keeps note when categoryId is a leave-locked category (AC-3)", async () => {
+    await seedPerson("E001", "王小明");
+    const leave = await seedLeaveCategory();
+    const complianceRating = await seedComplianceRating();
+    const threeS = await seedThreeSPerformance();
+    const sop = await seedSopPerformance();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+
+    const updated = await saveFormRecords(form.id, "班長甲", [
+      {
+        employeeId: "E001",
+        categoryId: leave.id,
+        note: "請假原因",
+        overtimeHours: 3,
+        complianceRatingId: complianceRating.id,
+        threeSPerformanceId: threeS.id,
+        sopPerformanceId: sop.id,
+        actualQuantity: 10,
+      },
+    ]);
+
+    const e001 = updated?.records.find((r) => r.employeeId === "E001");
+    expect(e001?.categoryId).toBe(leave.id);
+    expect(e001?.overtimeHours).toBeNull();
+    expect(e001?.complianceRatingId).toBeNull();
+    expect(e001?.threeSPerformanceId).toBeNull();
+    expect(e001?.sopPerformanceId).toBeNull();
+    expect(e001?.actualQuantity).toBeNull();
+    // 備註跟「未填」規則不同，請假鎖定類不清空備註。
+    expect(e001?.note).toBe("請假原因");
+  });
+
+  // AC-2：切入請假鎖定類時清空既有已填值，備註維持原值。
+  it("clears extended fields but keeps note when switching from an unlocked category to a leave-locked one (AC-2)", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    const leave = await seedLeaveCategory();
+    const complianceRating = await seedComplianceRating();
+    const threeS = await seedThreeSPerformance();
+    const sop = await seedSopPerformance();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+
+    await saveFormRecords(form.id, "班長甲", [
+      {
+        employeeId: "E001",
+        categoryId: category.id,
+        note: "原始備註",
+        overtimeHours: 3,
+        complianceRatingId: complianceRating.id,
+        threeSPerformanceId: threeS.id,
+        sopPerformanceId: sop.id,
+        actualQuantity: 10,
+      },
+    ]);
+
+    const switched = await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: leave.id, note: "原始備註" },
+    ]);
+
+    const e001 = switched?.records.find((r) => r.employeeId === "E001");
+    expect(e001?.categoryId).toBe(leave.id);
+    expect(e001?.overtimeHours).toBeNull();
+    expect(e001?.complianceRatingId).toBeNull();
+    expect(e001?.threeSPerformanceId).toBeNull();
+    expect(e001?.sopPerformanceId).toBeNull();
+    expect(e001?.actualQuantity).toBeNull();
+    expect(e001?.note).toBe("原始備註");
+  });
+
+  // AC-1：檢視／編輯層面的鎖定行為由前端 disabled 呈現，這裡只驗證後端資料層
+  // 確實把非備註欄位鎖住（跟 AC-3 同一條規則，另立一個案例確認語意清楚）。
+  it("keeps categoryId as the leave-locked category when only note is saved", async () => {
+    await seedPerson("E001", "王小明");
+    const leave = await seedLeaveCategory();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+
+    const updated = await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: leave.id, note: "備註可填" },
+    ]);
+    const e001 = updated?.records.find((r) => r.employeeId === "E001");
+    expect(e001?.categoryId).toBe(leave.id);
+    expect(e001?.note).toBe("備註可填");
+  });
+});
+
+describe("saveFormRecords — 切換出勤類別由鎖定解除時，3S表現／SOP表現自動預設「正常」 (spec 2026-08-03-attendance-leave-lock-sop-field AC-7)", () => {
+  it("defaults threeSPerformanceId/sopPerformanceId to the locked 「正常」 option when switching from null to an unlocked category without specifying them", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    const normalThreeS = await seedLockedThreeSPerformance();
+    const normalSop = await seedLockedSopPerformance();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+    // E001 starts 未填 (categoryId null) by createDailyForm's default.
+
+    const updated = await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id },
+    ]);
+
+    const e001 = updated?.records.find((r) => r.employeeId === "E001");
+    expect(e001?.threeSPerformanceId).toBe(normalThreeS.id);
+    expect(e001?.sopPerformanceId).toBe(normalSop.id);
+  });
+
+  it("defaults threeSPerformanceId/sopPerformanceId when switching from a leave-locked category to an unlocked one", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    const leave = await seedLeaveCategory();
+    const normalThreeS = await seedLockedThreeSPerformance();
+    const normalSop = await seedLockedSopPerformance();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+
+    await saveFormRecords(form.id, "班長甲", [{ employeeId: "E001", categoryId: leave.id }]);
+    const updated = await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id },
+    ]);
+
+    const e001 = updated?.records.find((r) => r.employeeId === "E001");
+    expect(e001?.threeSPerformanceId).toBe(normalThreeS.id);
+    expect(e001?.sopPerformanceId).toBe(normalSop.id);
+  });
+
+  it("does not override an explicitly specified threeSPerformanceId/sopPerformanceId when unlocking", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    await seedLockedThreeSPerformance();
+    await seedLockedSopPerformance();
+    const otherThreeS = await seedThreeSPerformance("ABNORMAL", "異常");
+    const otherSop = await seedSopPerformance("ABNORMAL", "異常");
+    const form = await createDailyForm("2026-01-01", "班長甲");
+
+    const updated = await saveFormRecords(form.id, "班長甲", [
+      {
+        employeeId: "E001",
+        categoryId: category.id,
+        threeSPerformanceId: otherThreeS.id,
+        sopPerformanceId: otherSop.id,
+      },
+    ]);
+
+    const e001 = updated?.records.find((r) => r.employeeId === "E001");
+    expect(e001?.threeSPerformanceId).toBe(otherThreeS.id);
+    expect(e001?.sopPerformanceId).toBe(otherSop.id);
+  });
+
+  // AC-9：配合度欄位不受本次規則影響，不套用自動預設，維持允許 null。
+  it("does not default complianceRatingId — it stays whatever the caller sent, including null (AC-9)", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    await seedLockedThreeSPerformance();
+    await seedLockedSopPerformance();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+
+    const updated = await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id },
+    ]);
+    const e001 = updated?.records.find((r) => r.employeeId === "E001");
+    expect(e001?.complianceRatingId).toBeNull();
+  });
+
+  // AC-11：既有舊資料（3S表現為 null）不因本次規則被回填——只有「實際切換出勤
+  // 類別」的操作才會觸發自動預設，單純改備註等其他欄位不會。
+  it("does not backfill an existing null threeSPerformanceId when categoryId is not part of the change (AC-11/FR-12)", async () => {
+    const person = await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    await seedLockedThreeSPerformance();
+    await seedLockedSopPerformance();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+
+    // Simulate a legacy row: unlocked category already set, 3S表現/SOP表現 still
+    // null (as if written before this feature existed), bypassing saveFormRecords.
+    await prisma.attendanceRecord.updateMany({
+      where: { formId: form.id, personId: person.id },
+      data: { categoryId: category.id },
+    });
+
+    const untouched = await getFormWithRecords(form.id);
+    expect(
+      untouched?.records.find((r) => r.employeeId === "E001")?.threeSPerformanceId
+    ).toBeNull();
+
+    // Saving an unrelated field (note) without touching categoryId must not
+    // trigger the auto-default — only an actual lock -> unlock transition does.
+    const saved = await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id, note: "只改備註" },
+    ]);
+    const e001 = saved?.records.find((r) => r.employeeId === "E001");
+    expect(e001?.note).toBe("只改備註");
+    expect(e001?.threeSPerformanceId).toBeNull();
   });
 });

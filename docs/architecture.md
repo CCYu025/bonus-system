@@ -29,4 +29,21 @@ The installed Next.js version has breaking changes from what training data assum
 
 ## Lookup-list management pattern (`/categories`)
 
-`src/app/categories/page.tsx` is a tab shell over three structurally-identical lookup lists (`AttendanceCategory`, `ComplianceRating`, `ThreeSPerformance`), rendered by a shared `LookupListPanel` (`src/app/categories/lookup-list-panel.tsx`). The three lists are *not* equally editable — `AttendanceCategory` is intentionally locked to seed-only + toggle (see `docs/database.md`'s schema-shape section), so `LookupListPanel` takes a `mode: "readonly" | "editable"` prop rather than assuming every lookup list gets the same CRUD surface. If you add a fourth lookup list here, decide its mode deliberately instead of defaulting to `"editable"`.
+`src/app/categories/page.tsx` is a tab shell over four structurally-identical lookup lists (`AttendanceCategory`, `ComplianceRating`, `ThreeSPerformance`, `SopPerformance`), rendered by a shared `LookupListPanel` (`src/app/categories/lookup-list-panel.tsx`). The lists are *not* equally editable — `AttendanceCategory` is intentionally locked to seed-only + toggle (see `docs/database.md`'s schema-shape section), so `LookupListPanel` takes a `mode: "readonly" | "editable"` prop rather than assuming every lookup list gets the same CRUD surface. If you add another lookup list here, decide its mode deliberately instead of defaulting to `"editable"`.
+
+Within an `"editable"` list, a single row can still be individually locked via `isLocked` (currently only `ThreeSPerformance`/`SopPerformance`'s seeded "正常" row) — `LookupListPanel` hides that row's 編輯/停用 buttons and shows a "系統鎖定" label instead, independent of the list's overall mode. This is a per-row lock, not a list-level mode; don't conflate it with `AttendanceCategory`'s readonly mode when reasoning about permissions here — see `docs/database.md`'s schema-shape section for why the "正常" row needs this and `src/lib/three-s-performance.ts`/`src/lib/sop-performance.ts` for the backend guard (`updateXxx` throws 403 if `existing.isLocked`).
+
+## Two-tier field locking on the attendance form (`docs/2026-08-03-attendance-leave-lock-sop-field`)
+
+The form's per-row lock started as a single rule ("未填 locks everything") and is now two tiers, both computed the same way in `src/lib/forms.ts`'s `saveFormRecords` and mirrored in `src/app/forms/[id]/page.tsx`:
+
+- **`hardLocked`** — `categoryId === null` (未填). Locks *all six* extra fields, **including `note`**, and clears them to `null`.
+- **`softLocked`** — `categoryId` points at an `AttendanceCategory` with `locksExtendedFields === true` (事假/病假/特休). Locks the *five* scoring/quantity fields (`overtimeHours`, `complianceRatingId`, `threeSPerformanceId`, `sopPerformanceId`, `actualQuantity`) but leaves **`note` editable** — a foreman still needs to write down the leave reason.
+
+Whichever tier a row is in, the backend is the only enforced boundary (`saveFormRecords` force-nulls the locked fields regardless of what the client sends) — the frontend's `disabled` attributes are UX only, same convention as the original 未填 rule.
+
+A row transitioning **out** of either locked tier (category changed to something with `locksExtendedFields === false`) auto-fills `threeSPerformanceId`/`sopPerformanceId` with each list's `isLocked` ("正常") option *if the caller didn't explicitly send a value* — but only when the row was actually locked *before* this change (`saveFormRecords` reads the record's current `categoryId` to decide this, not just the incoming `categoryId`). A save that doesn't touch `categoryId` at all (e.g. editing only `note`) never triggers this, so pre-existing `null` values from before this feature shipped stay `null` — see `docs/database.md` and `docs/testing.md` for the corresponding test coverage.
+
+## Wide-table layout (`.table-scroll`)
+
+The attendance form's record table has nine columns, two of which (`3S表現`/`SOP表現`) hold free-text option names that can be long sentences. Rather than truncating data, the table is wrapped in a `<div className="table-scroll">` (`overflow-x: auto`, defined in `globals.css`) so it scrolls horizontally instead of overflowing the page; the two long-text `<select>` elements additionally get a fixed `maxWidth` + `text-overflow: ellipsis` + a `title` attribute for the full value on hover. If you add another lookup-backed column with potentially long option text, follow this same pattern rather than letting the table grow unbounded.

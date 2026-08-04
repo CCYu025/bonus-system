@@ -68,6 +68,19 @@ Adds four nullable columns to `AttendanceRecord` (`overtimeHours`, `complianceRa
 
 If you touch any of these five columns again, keep both of the above tested together — they're two different rules (format vs. lock) that happen to live in the same code path.
 
+## The leave-lock / SOP field feature (implemented — `src/lib/sop-performance.ts`, `src/lib/forms.ts`)
+
+Adds a second lock tier (`AttendanceCategory.locksExtendedFields`), a fifth extra `AttendanceRecord` column (`sopPerformanceId`), and an `isLocked` protected-row pattern on `ThreeSPerformance`/`SopPerformance` — see `docs/database.md`'s schema-shape section and `docs/2026-08-03-attendance-leave-lock-sop-field/spec.md`.
+
+**If you add a new lookup table with an `isLocked` column, remember `test/reset-db.ts`.** It deletes rows table-by-table in FK order; a new table not added there won't be cleared between tests, and the *second* test that tries to create a fixture row with a `code` used by an earlier test's leftover row will fail on the unique constraint — not an obviously-related error message. This actually happened while building `sop-performance.test.ts` (17 failing tests, all `業務代碼 NORMAL 已存在`) until `sopPerformance.deleteMany()` was added.
+
+`forms.test.ts` covers three things specific to this feature, each worth keeping distinct when you touch this area again:
+- **`softLocked` vs `hardLocked`**: a leave-locked category (`seedLeaveCategory()`, `locksExtendedFields: true`) clears the five scoring/quantity columns but *not* `note`; an unfilled (`categoryId: null`) row clears all six. Test both transitions (unlocked→leave-locked, and the leave-locked API-bypass case) and assert `note` behaves differently between the two.
+- **Auto-default on unlock** (`seedLockedThreeSPerformance()`/`seedLockedSopPerformance()`, `isLocked: true`): switching a row from either locked state to an unlocked category defaults `threeSPerformanceId`/`sopPerformanceId` to the `isLocked` option's id *only if the caller left them `null`* — cover the "caller explicitly specified a different value" case too, since that's the one most likely to get silently broken by an overzealous default.
+- **No retroactive backfill**: simulate a pre-feature row via `prisma.attendanceRecord.updateMany()` (bypassing `saveFormRecords`) with a non-null `categoryId` but `threeSPerformanceId: null`, then confirm a `saveFormRecords` call that doesn't touch `categoryId` (e.g. only `note`) leaves it `null` — the auto-default only fires on an actual lock→unlock transition, not just "row happens to be unlocked already."
+
+`sop-performance.test.ts` mirrors `three-s-performance.test.ts`'s shape (list/create/update/404/no-score-field), plus both files got a matching pair of `isLocked` guard tests (`rejects editing…`, `rejects deactivating…`) and a regression test confirming non-locked rows are still fully editable.
+
 ## When a route-level test is worth it
 
 Rare, but worth it when adding a new protected `app/api/**/route.ts`: a quick test hitting the route and asserting `401` with no session / `403` with the wrong role. This isn't about re-testing `lib/*.ts` logic (already covered), it's specifically to catch "forgot to call `requireAuth`/`requireRole` before doing anything" — a cheap mistake with real security consequences (see `docs/auth.md`).

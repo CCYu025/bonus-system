@@ -89,6 +89,11 @@ table {
   margin-bottom: 16px;
 }
 
+/* AC-13：欄位過多時（例如出勤表單填寫頁）表格可橫向捲動，不裁切資料。 */
+.table-scroll {
+  overflow-x: auto;
+}
+
 th,
 td {
   border: 1px solid #d0d0d0;
