@@ -68,6 +68,10 @@ model AttendanceCategory {
   updatedAt           DateTime @updatedAt
 
   records AttendanceRecord[]
+  // docs/2026-08-04-attendance-scoring-rules：反向關聯，不對應實際資料庫欄位
+  // （FK 實際存在於 category_score_rule.categoryId），比照下方各 lookup 表的
+  // records 反向關聯慣例，Prisma 關聯「一」側需要宣告此欄位才能通過 schema 驗證。
+  categoryScoreRule CategoryScoreRule?
 
   @@map("attendance_category")
 }
@@ -126,6 +130,44 @@ model SopPerformance {
   @@map("sop_performance")
 }
 
+// 出勤類別積分設定（docs/2026-08-04-attendance-scoring-rules）——純設定值，
+// 不涉及任何依出勤紀錄的計算/彙總邏輯。每個類別最多一筆規則，未設定視為
+// 「未設定」而非 0 分（AC-3），故用 upsert 語意而非傳統各自獨立的 CRUD。
+// 「假日加班」類別（code = HOLIDAY_OVERTIME）不使用此表——它的積分完全由
+// OvertimeScoreRule 的假日加班級距決定（AC-4）。
+model CategoryScoreRule {
+  id         String             @id @default(cuid())
+  categoryId String             @unique
+  category   AttendanceCategory @relation(fields: [categoryId], references: [id])
+  points     Int
+  updatedBy  String
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@map("category_score_rule")
+}
+
+// 加班積分設定（平日/假日兩組互斥時數級距，見 spec FR-7 的固定 seed 值）。
+// 不含任何外鍵——純規則設定，不參照任何出勤紀錄；本次僅開放編輯既有規則的
+// points/pointsPerExtraHour，不開放新增/刪除級距列（級距結構由 seed 固定定義）。
+model OvertimeScoreRule {
+  id   String @id @default(cuid())
+  // "weekday" | "holiday"，應用層驗證，不建 DB enum，維持既有 SQLite migration 風格一致。
+  overtimeType String
+  minHours     Int
+  // null = 無上限（例如平日加班「3 小時（含以上）」、假日加班「超過 8 小時」）。
+  maxHours Int?
+  points   Int
+  // 僅假日加班「超過 8 小時」這筆非 null：每滿 1 小時在 points 基礎上再加此值。
+  pointsPerExtraHour Int?
+  sortOrder          Int      @default(0)
+  updatedBy          String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("overtime_score_rule")
+}
+
 enum FormStatus {
   draft
   pending_review
@@ -180,7 +222,7 @@ model AttendanceRecord {
   // "有資料就有分數，未填視為無資料"，本次不做必填限制、不做分數換算。
   // categoryId 為 null（未填）時，saveFormRecords 會強制把這四欄與 note 一併清空
   // （AC-6/AC-7/AC-8），不可只在前端擋。
-  overtimeHours       Int? // 1–10 的整數，UI 不提供 0 這個選項
+  overtimeHours       Int? // 1–12 的整數，UI 不提供 0 這個選項（上限 2026-08-04 由 10 擴大為 12，見 docs/2026-08-04-attendance-scoring-rules/spec.md AC-8）
   complianceRatingId  String?
   complianceRating    ComplianceRating?   @relation(fields: [complianceRatingId], references: [id])
   threeSPerformanceId String?

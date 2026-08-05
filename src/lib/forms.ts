@@ -196,13 +196,15 @@ export async function saveFormRecords(
         }
       }
 
-      // AC-5：實際產量僅接受正整數；加班時數僅接受 1–10 整數（同一欄位的防呆，
+      // AC-5：實際產量僅接受正整數；加班時數僅接受 1–12 整數（同一欄位的防呆，
       // UI 的下拉本身不會送出不合法值，但後端仍須擋，見 NFR-1）。
+      // 上限由 10 擴大為 12：docs/2026-08-04-attendance-scoring-rules/spec.md AC-8，
+      // 對 docs/2026-08-01-attendance-extended-fields/spec.md AC-3 的顯式修訂。
       if (
         overtimeHours !== null &&
-        (!Number.isInteger(overtimeHours) || overtimeHours < 1 || overtimeHours > 10)
+        (!Number.isInteger(overtimeHours) || overtimeHours < 1 || overtimeHours > 12)
       ) {
-        throw new AppError(400, "加班時數須為 1 到 10 的整數");
+        throw new AppError(400, "加班時數須為 1 到 12 的整數");
       }
       if (actualQuantity !== null && (!Number.isInteger(actualQuantity) || actualQuantity <= 0)) {
         throw new AppError(400, "實際產量須為正整數");

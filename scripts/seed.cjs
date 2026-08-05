@@ -90,3 +90,39 @@ db.prepare(
 });
 
 console.log("seeded sop_performance「正常」option (idempotent).");
+
+// 加班積分規則（docs/2026-08-04-attendance-scoring-rules FR-7）：平日/假日兩組
+// 互斥時數級距，固定值，冪等 seed。不 seed category_score_rule——「未設定」是
+// 出勤類別積分的合法初始狀態（AC-3），不能預塞任何值。
+const overtimeRules = [
+  { overtimeType: "weekday", minHours: 2, maxHours: 2, points: 25, pointsPerExtraHour: null, sortOrder: 1 },
+  { overtimeType: "weekday", minHours: 3, maxHours: null, points: 40, pointsPerExtraHour: null, sortOrder: 2 },
+  { overtimeType: "holiday", minHours: 4, maxHours: 7, points: 50, pointsPerExtraHour: null, sortOrder: 1 },
+  { overtimeType: "holiday", minHours: 8, maxHours: 8, points: 100, pointsPerExtraHour: null, sortOrder: 2 },
+  { overtimeType: "holiday", minHours: 9, maxHours: null, points: 100, pointsPerExtraHour: 10, sortOrder: 3 },
+];
+
+const existingOvertimeRuleCount = db
+  .prepare(`SELECT COUNT(*) AS c FROM overtime_score_rule`)
+  .get().c;
+
+if (existingOvertimeRuleCount === 0) {
+  const insertOvertimeRule = db.prepare(`
+    INSERT INTO overtime_score_rule
+      (id, overtimeType, minHours, maxHours, points, pointsPerExtraHour, sortOrder, updatedBy, createdAt, updatedAt)
+    VALUES
+      (@id, @overtimeType, @minHours, @maxHours, @points, @pointsPerExtraHour, @sortOrder, @updatedBy, @createdAt, @updatedAt)
+  `);
+  for (const r of overtimeRules) {
+    insertOvertimeRule.run({
+      id: crypto.randomUUID(),
+      ...r,
+      updatedBy: "system-seed",
+      createdAt: now(),
+      updatedAt: now(),
+    });
+  }
+  console.log("seeded overtime_score_rule (idempotent).");
+} else {
+  console.log("overtime_score_rule already seeded, skipping.");
+}

@@ -382,17 +382,30 @@ describe("saveFormRecords — 擴充欄位格式驗證 (spec 2026-08-01-attendan
     expect(updated?.records.find((r) => r.employeeId === "E001")?.actualQuantity).toBe(50);
   });
 
-  it("rejects overtimeHours outside the 1-10 range or non-integer", async () => {
+  it("rejects overtimeHours outside the 1-12 range or non-integer (AC-8 amendment: upper bound 10→12)", async () => {
     await seedPerson("E001", "王小明");
     const category = await seedCategory();
     const form = await createDailyForm("2026-01-01", "班長甲");
 
-    for (const bad of [0, 11, 1.5]) {
+    for (const bad of [0, 13, 1.5]) {
       await expect(
         saveFormRecords(form.id, "班長甲", [
           { employeeId: "E001", categoryId: category.id, overtimeHours: bad },
         ])
       ).rejects.toMatchObject({ status: 400 });
+    }
+  });
+
+  it("accepts overtimeHours up to the new upper bound of 12 (AC-8)", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+
+    for (const ok of [11, 12]) {
+      const updated = await saveFormRecords(form.id, "班長甲", [
+        { employeeId: "E001", categoryId: category.id, overtimeHours: ok },
+      ]);
+      expect(updated?.records.find((r) => r.employeeId === "E001")?.overtimeHours).toBe(ok);
     }
   });
 

@@ -90,7 +90,10 @@ type EditState = {
   sopPerformanceId: string | null;
 };
 
-const OVERTIME_HOUR_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1);
+// 上限由 10 擴大為 12：docs/2026-08-04-attendance-scoring-rules/spec.md AC-8，
+// 對 docs/2026-08-01-attendance-extended-fields/spec.md AC-3 的顯式修訂
+// （假日加班積分規則需涵蓋超過 8 小時的情境）。
+const OVERTIME_HOUR_OPTIONS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "草稿",

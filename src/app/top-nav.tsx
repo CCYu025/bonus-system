@@ -39,6 +39,7 @@ export default function TopNav() {
         <>
           <Link href="/forms?mode=supervisor">待審核（開發者）</Link>
           <Link href="/accounts">帳號管理</Link>
+          <Link href="/score-rules">積分規則設定</Link>
         </>
       )}
       {me && (
