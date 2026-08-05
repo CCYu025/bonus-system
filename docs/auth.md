@@ -30,3 +30,7 @@ Client pages call the shared `authFetch` helper (`src/lib/auth-client.ts`) inste
 Every audit-logged action (submit/approve/reject/void/save-draft) used to take a manually-typed `operatorName` field. That's gone — routes now derive it from `requireAuth()`'s/`requireRole()`'s returned session (`session.user.displayName`) and pass that into `lib/forms.ts`. `AuditLog.operatorName` is stored as a plain string snapshot at write time (not an FK), so renaming a `User.displayName` later never rewrites past audit rows — see `docs/database.md` for the schema side of this.
 
 If you add a new mutating route, follow the same pattern: get `user.displayName` from the session, pass it down to the `lib/*.ts` function, don't accept it from the request body.
+
+## Not every GET is `requireAuth`-only — check the spec, don't assume
+
+Most lookup-list GET routes (`/api/categories`, `/api/compliance-ratings`, etc.) only call `requireAuth()` — any logged-in role can view, only writes need `requireRole("developer")`. `/api/category-score-rules` and `/api/overtime-score-rules` (`docs/2026-08-04-attendance-scoring-rules`) break this convention on purpose: both GET and write handlers call `requireRole("developer")`, so a `foreman` gets 403 even on a read. This was an explicit spec decision (AC-11), not an oversight — when adding a new route, check whether its spec says reads should be role-gated too rather than defaulting to the more common `requireAuth`-only shape.

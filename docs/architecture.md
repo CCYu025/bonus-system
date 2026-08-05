@@ -47,3 +47,12 @@ A row transitioning **out** of either locked tier (category changed to something
 ## Wide-table layout (`.table-scroll`)
 
 The attendance form's record table has nine columns, two of which (`3S表現`/`SOP表現`) hold free-text option names that can be long sentences. Rather than truncating data, the table is wrapped in a `<div className="table-scroll">` (`overflow-x: auto`, defined in `globals.css`) so it scrolls horizontally instead of overflowing the page; the two long-text `<select>` elements additionally get a fixed `maxWidth` + `text-overflow: ellipsis` + a `title` attribute for the full value on hover. If you add another lookup-backed column with potentially long option text, follow this same pattern rather than letting the table grow unbounded.
+
+## Score rules settings page (`/score-rules`, `docs/2026-08-04-attendance-scoring-rules`)
+
+A settings page for the still-unused scoring columns mentioned in `docs/database.md` — lets a developer set the points each `AttendanceCategory` and each overtime-hours tier is worth. Two things make it a different shape from the `/categories` lookup-list pattern rather than a reuse of `LookupListPanel`:
+
+- **Document layout, not a table.** The page renders as a two-chapter article (`出勤類別` / `加班`, the latter split into `平日加班`/`假日加班` sub-sections) with a read/edit mode toggle, not a CRUD grid. Display formatting for both chapters is pulled out into pure functions (`src/app/score-rules/display.ts` — `formatCategoryPoints`, `formatOvertimeRuleLabel`) so the "what string does this rule render as" logic is testable without mounting the component; the page itself just calls these and renders.
+- **Permission model deliberately stricter than `/categories`.** `/categories`'s GET routes are `requireAuth`-only (any logged-in role can view, only mutations need `developer`). `/score-rules`'s GET routes (`/api/category-score-rules`, `/api/overtime-score-rules`) require `requireRole("developer")` for reads too — a `foreman` gets 403 even trying to view the settings, and the `top-nav.tsx` link only renders inside the existing `developer`-only link group. This is a spec-level decision (`docs/2026-08-04-attendance-scoring-rules/spec.md` AC-11), not a general rule — don't assume every future lookup/settings page should hide itself from `foreman`; check that spec's OQ-1 for the reasoning before copying this pattern elsewhere.
+
+Both new tables (`CategoryScoreRule`/`OvertimeScoreRule`, see `docs/database.md`) are pure settings — nothing in the codebase reads them to compute anything yet.

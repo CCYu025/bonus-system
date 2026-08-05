@@ -63,7 +63,7 @@ Adds four nullable columns to `AttendanceRecord` (`overtimeHours`, `complianceRa
 `compliance-ratings.test.ts` / `three-s-performance.test.ts` mirror `categories.test.ts`'s shape (list/create/update/404), plus an explicit assertion that created records carry no `score`/`weight` field — that's out of scope until a future weighting feature exists, and the test exists specifically to catch someone adding one prematurely.
 
 `forms.test.ts` covers the two behaviors that matter most for this feature:
-- **Format validation** in `saveFormRecords`: `actualQuantity` must be a positive integer, `overtimeHours` must be 1–10 — both reject with a 400 otherwise (zero, negative, and non-integer values are all tested).
+- **Format validation** in `saveFormRecords`: `actualQuantity` must be a positive integer, `overtimeHours` must be 1–12 (upper bound widened from 10 on 2026-08-04, see `docs/2026-08-04-attendance-scoring-rules/spec.md` AC-8) — both reject with a 400 otherwise (zero, negative, and non-integer values are all tested).
 - **The 未填-locks-everything invariant**: whenever a change's `categoryId` is `null`, `saveFormRecords` force-nulls the other four columns and `note`, regardless of what the caller sent. This is tested in both directions — a change where `categoryId` is already `null` with the other fields populated in the same request, and a change that flips an already-filled row's `categoryId` back to `null`. `voidAndResubmitForm` is also tested to confirm these four fields carry across a void/resubmit cycle, same as `categoryId`/`note` always did — easy regression to introduce silently since that function's `create` mapping lists fields explicitly.
 
 If you touch any of these five columns again, keep both of the above tested together — they're two different rules (format vs. lock) that happen to live in the same code path.
@@ -80,6 +80,16 @@ Adds a second lock tier (`AttendanceCategory.locksExtendedFields`), a fifth extr
 - **No retroactive backfill**: simulate a pre-feature row via `prisma.attendanceRecord.updateMany()` (bypassing `saveFormRecords`) with a non-null `categoryId` but `threeSPerformanceId: null`, then confirm a `saveFormRecords` call that doesn't touch `categoryId` (e.g. only `note`) leaves it `null` — the auto-default only fires on an actual lock→unlock transition, not just "row happens to be unlocked already."
 
 `sop-performance.test.ts` mirrors `three-s-performance.test.ts`'s shape (list/create/update/404/no-score-field), plus both files got a matching pair of `isLocked` guard tests (`rejects editing…`, `rejects deactivating…`) and a regression test confirming non-locked rows are still fully editable.
+
+## The attendance-scoring-rules feature (implemented — `src/lib/category-score-rules.ts`, `src/lib/overtime-score-rules.ts`, `src/app/score-rules/`)
+
+Adds two new settings tables (`CategoryScoreRule`/`OvertimeScoreRule`, see `docs/database.md`) and a `/score-rules` page — see `docs/2026-08-04-attendance-scoring-rules/spec.md`. Test coverage splits by what's actually being asserted, not by file type:
+
+- **Data/API behavior** (writes land correctly, `AttendanceCategory` untouched by a `CategoryScoreRule` write, 401/403 on both GET and PATCH/PUT — see `docs/auth.md`'s note on this feature's stricter GET gating, `updatedAt`/`updatedBy` populated correctly) — plain DB-backed `lib/*.test.ts` + route-level test, same convention as everywhere else in this file.
+- **Display-string formatting** (`未設定` for a `null` points value vs `+0` for an actual zero, the exact "2 小時 → +25" / "超過 8 小時 → 100 ＋ 每小時 10" wording) — pulled into pure functions in `src/app/score-rules/display.ts` and tested with plain Vitest (no DOM, no fixtures), same pattern as `src/app/attendance-query/filters.ts`. Prefer this over a component test whenever the thing under test is "given this data, what string comes out" — it's cheaper and doesn't need the jsdom environment below.
+- **"Is this element actually rendered"** (e.g. AC-4: the 假日加班 row must have *no* `<input>`/edit button at all, not just a disabled one) — this can't be verified by a pure string-formatting function, so it's the one category of assertion that justifies a real component test.
+
+**This feature introduced the project's first jsdom + React Testing Library layer** (`@testing-library/react`, `@testing-library/jest-dom`, `jsdom` — previously every test ran in Vitest's default `node` environment against the real DB). Rather than flipping `vitest.config.ts`'s global `environment`, component test files opt in individually with a `// @vitest-environment jsdom` comment on the first line (see `src/app/score-rules/page.test.tsx`, `src/app/top-nav.test.tsx`). Keep new component tests decoupled from `src/lib/prisma` — don't `import` anything that touches the real Prisma client from a jsdom-environment file; mock `fetch`/`authFetch` instead, the same way `page.test.tsx` does. If you need a jsdom test elsewhere, reuse `test/jsdom-setup.ts` rather than re-registering `@testing-library/jest-dom`'s matchers per file.
 
 ## When a route-level test is worth it
 
