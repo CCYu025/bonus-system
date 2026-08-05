@@ -1,0 +1,79 @@
+[
+  {
+    "ac_id": "AC-1",
+    "given_when_then": "Given developer 角色登入系統 / When 從主選單導覽 / Then 「積分規則設定」（暫定路由 /score-rules）是獨立於「類別管理」（/categories）的選單項目與頁面，兩者互不影響彼此的既有功能",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "npm test（vitest run）：20 個測試檔、161 測試全數通過，完整輸出見 evidence/npm-test-full.txt。src/app/top-nav.test.tsx 'shows 積分規則設定 for a developer session (AC-1)' 斷言選單在 developer 角色下出現 '積分規則設定' 連結；src/app/score-rules/page.test.tsx 'renders 出勤類別 and 加班 section headings (AC-1)' 斷言 /score-rules 頁面獨立渲染出兩個章節標題。靜態審查：src/app/top-nav.tsx 第 35 行 '類別管理' 連結與第 42 行 '積分規則設定' 連結為不同 <Link href> 目標（/categories vs /score-rules）；prisma/schema.prisma 新增 CategoryScoreRule/OvertimeScoreRule 為獨立新表，未修改 AttendanceCategory 既有欄位（僅新增不對應實體欄位的反向關聯 categoryScoreRule?），confirms 兩頁面資料層互不影響。"
+  },
+  {
+    "ac_id": "AC-2",
+    "given_when_then": "Given developer 進入積分規則設定頁「出勤類別」章節 / When 對某個非假日加班的啟用中類別（例如正常出勤）輸入並儲存積分值 / Then 該積分值被寫入 CategoryScoreRule；AttendanceCategory 本身的欄位（code/name/sortOrder/isActive/locksExtendedFields）不受任何影響",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/category-score-rules.test.ts 'writes the points value without touching AttendanceCategory's own fields (AC-2)'：DB-backed 測試，upsertCategoryScoreRule(-20) 前後用 prisma.attendanceCategory.findUnique 比對 code/name/sortOrder/isActive/locksExtendedFields 全部不變，且 prisma.categoryScoreRule.findUnique 確認 points=-20 已寫入獨立表。測試通過，見 evidence/npm-test-full.txt（161/161 pass，含此檔）。"
+  },
+  {
+    "ac_id": "AC-3",
+    "given_when_then": "Given 某個啟用中的出勤類別尚未有對應的 CategoryScoreRule 資料 / When 檢視「出勤類別」章節 / Then 該類別顯示為「未設定」，不會被誤判為 0 分或任何預設值",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/category-score-rules.test.ts 'returns points: null for a category with no rule set yet (AC-3)'：新建類別未設定規則時 listCategoryScoreRules() 回傳 points:null（不是 0）。src/app/score-rules/display.test.ts 'returns 未設定 for null (AC-3)' 與 'formats zero with an explicit + sign (特休 +0)' 兩條測試分別確認 formatCategoryPoints(null) === '未設定'、formatCategoryPoints(0) === '+0'，證明 0 分與未設定在顯示層明確區分，不會混淆。全部通過，見 evidence/npm-test-full.txt。"
+  },
+  {
+    "ac_id": "AC-4",
+    "given_when_then": "Given developer 進入「出勤類別」章節 / When 檢視「假日加班」這個類別的列項 / Then 不提供積分輸入欄位，顯示固定提示文字「積分由加班規則決定」，且無法透過此章節為它設定固定積分值",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/category-score-rules.test.ts 'includes 假日加班 as a row but with scoreSource: overtime and points always null (AC-4)' 與 'rejects setting points for the 假日加班 category (AC-4 backend guard)'（呼叫 upsertCategoryScoreRule 對 HOLIDAY_OVERTIME 類別拒絕，status 400）。src/app/score-rules/page.test.tsx 'does not render an input or edit button for the 假日加班 category row (AC-4)' 斷言該列 <li> 內無 <input>/<button>，且顯示文字「積分由加班規則決定」。全部通過，見 evidence/npm-test-full.txt。備註（實作與 plan.md T-2 描述的差異，已與委託方確認）：listCategoryScoreRules() 實際上『包含』假日加班列項（scoreSource:'overtime', points 恆為 null），而非 plan.md T-2 實作重點原文所寫的『排除』；已核對 spec.md AC-4 的 Given/When/Then（'檢視「假日加班」這個類別的列項'）隱含此列項仍需以一個 row 呈現、只是不可編輯，純排除會導致列項從畫面消失，不符 AC-4 字面意思。以 spec.md 為準，此差異判定為正確實作，非缺陷。"
+  },
+  {
+    "ac_id": "AC-5",
+    "given_when_then": "Given developer 檢視「加班」章節「平日加班」子章節 / When 檢視級距清單 / Then 清單包含「2 小時 → +25」「3 小時（含以上）→ +40」兩條規則，且無 1 小時對應的積分規則（即 1 小時不給分）",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/score-rules/display.test.ts '平日加班 2 小時 → +25 (AC-5)' 與 '平日加班 3 小時（含以上）→ +40 (AC-5)' 逐字比對 formatOvertimeRuleLabel 輸出。src/lib/overtime-score-rules.test.ts 'returns weekday rules first...(FR-7)' 確認 seed 資料只有 minHours=2(maxHours=2,points=25) 與 minHours=3(maxHours=null,points=40) 兩筆平日級距，無 1 小時對應規則。scripts/seed.cjs 第 97-103 行固定 seed 值與此一致。全部通過，見 evidence/npm-test-full.txt。"
+  },
+  {
+    "ac_id": "AC-6",
+    "given_when_then": "Given developer 檢視「加班」章節「假日加班」子章節 / When 檢視級距清單 / Then 清單包含「4–7 小時 → +50」「8 小時 → +100」「超過 8 小時 → 100 ＋ 每小時 10」三條互斥規則，且無 1–3 小時對應的積分規則",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/score-rules/display.test.ts 三條測試逐字比對：'假日加班 4–7 小時 → +50 (AC-6)'、'假日加班 8 小時 → +100 (AC-6)'、'假日加班 超過 8 小時 → 100 ＋ 每小時 10 (AC-6，逐字比照 spec 例句，不帶正負號)'——確認 formatOvertimeRuleLabel({minHours:9,maxHours:null,points:100,pointsPerExtraHour:10}) 輸出 '超過 8 小時 → 100 ＋ 每小時 10'（100 刻意不帶 + 號，逐字比照 spec.md AC-6/FR-8 例句，與其餘級距用 formatSignedPoints 帶正負號不同，屬刻意設計非 bug）。src/lib/overtime-score-rules.test.ts 確認 seed 只有 4–7/8/9+ 三筆假日級距，無 1–3 小時規則。全部通過，見 evidence/npm-test-full.txt。"
+  },
+  {
+    "ac_id": "AC-7",
+    "given_when_then": "Given developer 檢視假日加班的規則說明 / When 閱讀該子章節的規則描述 / Then 規則描述明確標示此積分僅在「出勤類別＝假日加班」且「加班時數達到對應門檻」兩條件同時成立時才成立；本次僅要求規則的設定與展示清楚傳達此條件，不要求系統做任何實際判斷或計算",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/score-rules/page.test.tsx 'shows the dual-condition explanation text under 假日加班 (AC-7)' 斷言頁面渲染出文字 '此積分僅在出勤類別為假日加班，且加班時數達到對應門檻時才成立'。靜態審查 src/app/score-rules/page.tsx 第 128-131 行確認該段為純靜態文案（無任何條件判斷或計算邏輯），符合 AC-7 '本次僅要求展示、不要求實際判斷' 的範圍限定。測試通過，見 evidence/npm-test-full.txt。"
+  },
+  {
+    "ac_id": "AC-8",
+    "given_when_then": "Given 出勤表單填寫頁面中，某人員的出勤類別已選 / When 開啟該人員的加班時數下拉選單 / Then 選項包含「未選」與 1 到 12 的整數，沒有 0 這個選項，且預設狀態顯示未選",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/forms.test.ts 'rejects overtimeHours outside the 1-12 range or non-integer (AC-8 amendment: upper bound 10→12)'（0、13、1.5 皆拒絕，status 400）與 'accepts overtimeHours up to the new upper bound of 12 (AC-8)'（11、12 皆接受）DB-backed 測試通過。靜態審查 src/app/forms/[id]/page.tsx 第 96 行 OVERTIME_HOUR_OPTIONS = Array.from({length:12},(_,i)=>i+1) 產生 1–12（無 0）；第 440 行 <option value=''>未選</option> 為第一個選項；第 431 行 value={getFieldValue(r,'overtimeHours') ?? ''} 確認未設值時預設顯示未選。docs/2026-08-01-attendance-extended-fields/spec.md 第 3 行與 AC-3（第 52-55 行）已加註 AMENDED: 2026-08-04 標記與交互參照，符合此為顯式修訂的要求。全部通過，見 evidence/npm-test-full.txt。"
+  },
+  {
+    "ac_id": "AC-9",
+    "given_when_then": "Given 非 developer 角色（或未登入）嘗試呼叫積分規則的寫入 API / When 直接呼叫 CategoryScoreRule／OvertimeScoreRule 對應的寫入端點 / Then API 回傳 403（未登入時回傳 401），不會寫入資料庫",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/api/category-score-rules/route.test.ts：PUT 無 session 回 401、foreman session 回 403（route-level test，mock next/headers 建立真實 session）。src/app/api/overtime-score-rules/route.test.ts：PATCH 同樣無 session 回 401、foreman 回 403。靜態審查 src/app/api/category-score-rules/[categoryId]/route.ts 與 src/app/api/overtime-score-rules/[id]/route.ts 皆以 requireRole('developer') 做為唯一權限入口（src/lib/auth.ts 第 57-61 行：requireAuth 先擋未登入回 401，再比對角色不符回 403），非 developer 皆在寫入 prisma 前被擋下（AppError 由 withErrorHandling 統一攔截，不執行 upsert/update）。全部通過，見 evidence/npm-test-full.txt。"
+  },
+  {
+    "ac_id": "AC-10",
+    "given_when_then": "Given developer 修改任一筆積分規則（出勤類別或加班級距） / When 儲存成功 / Then 該筆規則的 updatedAt／updatedBy 更新為本次操作的時間與操作者 displayName",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/category-score-rules.test.ts 'records updatedBy and updatedAt on write (AC-10)'：upsertCategoryScoreRule 後 rule.updatedBy==='developer甲'、updatedAt >= 呼叫前時間戳。src/lib/overtime-score-rules.test.ts 'records updatedBy and updatedAt on write (AC-10)'：同樣斷言。靜態審查 src/app/api/category-score-rules/[categoryId]/route.ts 第 11-14 行與 src/app/api/overtime-score-rules/[id]/route.ts 第 11-14 行皆從 requireRole 回傳的 session.user.displayName 取值傳入，不接受 request body 帶入 updatedBy（比照 docs/auth.md 'Operator identity is not user input' 慣例）。全部通過，見 evidence/npm-test-full.txt。"
+  },
+  {
+    "ac_id": "AC-11",
+    "given_when_then": "Given foreman 角色（或未登入）使用者 / When 從主選單尋找積分規則設定入口，或直接嘗試訪問 /score-rules 路由／呼叫查詢 API / Then 主選單不顯示該入口；直接訪問頁面或呼叫查詢 API 一律被拒絕（頁面導向或 403/401），不會回傳任何積分規則資料",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/top-nav.test.tsx 'does not show 積分規則設定 for a foreman session (AC-11)'：foreman session 下選單無「積分規則設定」連結（但仍顯示既有 '類別管理'，證明只有本頁被隱藏）。src/app/api/category-score-rules/route.test.ts 與 src/app/api/overtime-score-rules/route.test.ts 的 GET 測試：無 session 回 401、foreman session 回 403，皆在呼叫 listCategoryScoreRules()/listOvertimeScoreRules() 之前被 requireRole('developer') 攔截，不回傳任何資料。靜態審查 src/app/api/category-score-rules/route.ts 第 5-6 行註解與程式碼明確標示『不沿用 /api/categories 現有的 requireAuth-only 慣例——連唯讀查詢都限定 developer』，與 /api/overtime-score-rules/route.ts 相同設計。全部通過，見 evidence/npm-test-full.txt。"
+  }
+]
