@@ -23,7 +23,10 @@ export default function PersonsPage() {
   }
 
   useEffect(() => {
-    load();
+    async function fetchData() {
+      await load();
+    }
+    fetchData();
   }, []);
 
   async function handleCreate(e: React.FormEvent) {

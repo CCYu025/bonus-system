@@ -46,7 +46,10 @@ function FormsPageInner() {
   }
 
   useEffect(() => {
-    load();
+    async function fetchData() {
+      await load();
+    }
+    fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSupervisor]);
 

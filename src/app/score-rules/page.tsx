@@ -39,7 +39,10 @@ export default function ScoreRulesPage() {
   }
 
   useEffect(() => {
-    load();
+    async function fetchData() {
+      await load();
+    }
+    fetchData();
   }, []);
 
   async function saveCategoryPoints(categoryId: string, points: number) {

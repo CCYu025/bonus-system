@@ -153,19 +153,22 @@ function FormDetailPageInner({
   }, [id]);
 
   useEffect(() => {
-    load();
-    authFetch("/api/categories?activeOnly=true")
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setCategories);
-    authFetch("/api/compliance-ratings?activeOnly=true")
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setComplianceRatings);
-    authFetch("/api/three-s-performance?activeOnly=true")
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setThreeSPerformances);
-    authFetch("/api/sop-performance?activeOnly=true")
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setSopPerformances);
+    async function fetchData() {
+      await load();
+      authFetch("/api/categories?activeOnly=true")
+        .then((r) => (r.ok ? r.json() : []))
+        .then(setCategories);
+      authFetch("/api/compliance-ratings?activeOnly=true")
+        .then((r) => (r.ok ? r.json() : []))
+        .then(setComplianceRatings);
+      authFetch("/api/three-s-performance?activeOnly=true")
+        .then((r) => (r.ok ? r.json() : []))
+        .then(setThreeSPerformances);
+      authFetch("/api/sop-performance?activeOnly=true")
+        .then((r) => (r.ok ? r.json() : []))
+        .then(setSopPerformances);
+    }
+    fetchData();
   }, [load]);
 
   const editable = form && ["draft", "rejected"].includes(form.status);
