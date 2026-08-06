@@ -35,6 +35,7 @@ export default function TopNav() {
       <Link href="/categories">類別管理</Link>
       <Link href="/forms">出勤表單（班長）</Link>
       <Link href="/attendance-query">出勤查詢</Link>
+      <Link href="/score-query">查詢分數</Link>
       {me?.role === "developer" && (
         <>
           <Link href="/forms?mode=supervisor">待審核（開發者）</Link>

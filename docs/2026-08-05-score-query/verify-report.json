@@ -1,0 +1,121 @@
+[
+  {
+    "ac_id": "AC-1",
+    "given_when_then": "Given 已登入的使用者（foreman 或 developer）進入查詢分數頁面 / When 選擇一個月份並送出查詢 / Then 畫面顯示該月每位人員的分數彙總列（工號、姓名、出勤類別分、加班分、總分），不需其他篩選條件即可查得結果",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/score-query/page.test.tsx :: 'only has a month filter, no name/category dropdowns (Scope)' 與 'renders the summary table with 工號/姓名/出勤類別分/加班分/總分 columns (AC-1)' 皆通過。npx vitest run 輸出見 evidence/vitest-score-query.txt（3 test files / 29 tests passed）。"
+  },
+  {
+    "ac_id": "AC-2",
+    "given_when_then": "Given 一筆核准且未作廢的 AttendanceRecord，categoryId 對應到某出勤類別 / When 系統計算該筆紀錄的出勤類別分 / Then 若該類別存在對應的 CategoryScoreRule，取其 points；若不存在，計為 0",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/score-query.test.ts describe('出勤類別分（AC-2）') 兩案例（有規則取 points=100、無規則計 0）皆 PASS，見 evidence/vitest-score-query.txt。"
+  },
+  {
+    "ac_id": "AC-3",
+    "given_when_then": "Given 一筆核准且未作廢的紀錄，categoryId 為「正常出勤」，overtimeHours 有值 / When 系統計算該筆紀錄的加班分 / Then 依 overtimeHours 落點套用 OvertimeScoreRule 中 overtimeType=weekday 對應級距的 points",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/score-query.test.ts describe('加班分：正常出勤／平日（AC-3）') 三案例（2 小時取 25、開放區間 6 小時取 40、落在級距外 fallback 0）皆 PASS，見 evidence/vitest-score-query.txt。"
+  },
+  {
+    "ac_id": "AC-4",
+    "given_when_then": "Given 一筆核准且未作廢的紀錄，categoryId 為「假日加班」，overtimeHours 有值 / When 系統計算該筆紀錄的加班分 / Then 依 overtimeHours 落點套用 overtimeType=holiday 對應級距的 points；若落在「超過 8 小時」的最高一階，另加 pointsPerExtraHour × 超出的時數",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/score-query.test.ts describe('加班分：假日加班（AC-4）') 五案例：一般級距 5h=50、剛好 8h=100 無加成、9h=110（100+10×1）、12h=140（100+10×4）、假日加班本身 categoryScore 恆為 0，皆 PASS，見 evidence/vitest-score-query.txt。"
+  },
+  {
+    "ac_id": "AC-5",
+    "given_when_then": "Given 一筆紀錄的 categoryId 為「正常出勤」「假日加班」以外的類別（如事假、病假、特休） / When 系統計算該筆紀錄的加班分 / Then 加班分為 0",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/score-query.test.ts describe('其他類別無加班分（AC-5）') 案例：病假類別（locksExtendedFields=true）overtimeScore=0、categoryScore 正常取 10，PASS，見 evidence/vitest-score-query.txt。"
+  },
+  {
+    "ac_id": "AC-6",
+    "given_when_then": "Given 某人員該月同時存在 draft／pending_review／rejected 或已作廢狀態的紀錄，以及一筆 approved 且生效中的紀錄 / When 查詢該月分數 / Then 只有 approved 且生效中的紀錄被計入分數；其餘狀態的紀錄不影響該人員的總分",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/score-query.test.ts describe('只計入核准且未作廢的紀錄（AC-6）') 四案例：pending_review 排除、rejected 排除、voided-and-resubmit 只計現行生效版本、未填紀錄排除，皆 PASS，見 evidence/vitest-score-query.txt。"
+  },
+  {
+    "ac_id": "AC-7",
+    "given_when_then": "Given 某人員該月有多筆核准且生效中的紀錄，各自已算出類別分與加班分 / When 系統彙總該人員該月分數 / Then 彙總列的「總分」= 該月所有計入紀錄的（類別分 + 加班分）加總",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/score-query.test.ts describe('個人總分加總與明細排序（AC-7 / AC-9）') 案例：兩筆紀錄 categoryScore=200 + overtimeScore=25 = totalScore=225，PASS，見 evidence/vitest-score-query.txt。"
+  },
+  {
+    "ac_id": "AC-8",
+    "given_when_then": "Given 查詢結果包含多位人員 / When 顯示彙總列表 / Then 列表依總分由高到低排序",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/score-query.test.ts describe('依總分排序（AC-8）') 驗證後端排序（result 依 totalScore 高到低），以及 src/app/score-query/page.test.tsx 'renders rows in the order returned by the API...(AC-8 / AC-10)' 驗證前端依 API 回傳順序渲染，皆 PASS，見 evidence/vitest-score-query.txt。"
+  },
+  {
+    "ac_id": "AC-9",
+    "given_when_then": "Given 彙總列表已顯示 / When 使用者點擊某位人員的列 / Then 該列下方展開逐筆出勤紀錄明細（日期、出勤類別、類別分、加班時數、加班分、小計），依日期由舊到新排序",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "資料面排序：src/lib/score-query.test.ts AC-7/AC-9 案例驗證 records 依日期由舊到新排序（['2026-01-02','2026-01-10']）。互動面：src/app/score-query/page.test.tsx 'expands a person's row to show per-record detail on click, and collapses on a second click (AC-9)' 驗證點擊展開/再次點擊收合、日期升冪顯示，皆 PASS，見 evidence/vitest-score-query.txt。"
+  },
+  {
+    "ac_id": "AC-10",
+    "given_when_then": "Given 某人員 status=active，但該月沒有任何核准且生效中的紀錄 / When 查詢該月分數 / Then 該人員仍出現在列表中，出勤類別分、加班分、總分皆顯示 0",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/score-query.test.ts describe('人員清單聯集（AC-10 / AC-11 / AC-12）') 'still lists an active person with no records this month, scoring 0 (AC-10)' PASS；src/app/score-query/page.test.tsx 對 E002（0 分人員）欄位驗證三欄皆為 0，PASS，見 evidence/vitest-score-query.txt。"
+  },
+  {
+    "ac_id": "AC-11",
+    "given_when_then": "Given 某人員於查詢月份中途被標記為 terminated，但該月月初至離職日之間有核准且生效中的紀錄 / When 查詢該月分數 / Then 該人員出現在列表中，分數依其該月實際核准紀錄計算",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/score-query.test.ts 'lists a person terminated mid-month, scored from their earlier records (AC-11)' PASS：先建立核准紀錄（totalScore 100）再標記 terminated，查詢結果仍包含該人員且分數正確，見 evidence/vitest-score-query.txt。"
+  },
+  {
+    "ac_id": "AC-12",
+    "given_when_then": "Given 某人員已於更早的月份被標記為 terminated，查詢月份中沒有任何屬於該人員的核准且生效中紀錄 / When 查詢該月分數 / Then 該人員不出現在查詢結果列表中",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/score-query.test.ts 'excludes a person terminated in an earlier month with no records this month (AC-12)' PASS：E001 於 12 月有紀錄後 terminated，1 月無紀錄，查詢 2026-01 結果僅含 E002，見 evidence/vitest-score-query.txt。"
+  },
+  {
+    "ac_id": "AC-13",
+    "given_when_then": "Given 使用者已登入，角色為 foreman 或 developer / When 呼叫查詢分數 API / Then 兩種角色皆可成功取得查詢結果，不因角色被拒絕（403）",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/api/score-query/by-month/route.test.ts 'returns 200 for a foreman session (AC-13)' 與 'returns 200 for a developer session (AC-13)' 皆回傳 200，見 evidence/vitest-score-query.txt。"
+  },
+  {
+    "ac_id": "AC-14",
+    "given_when_then": "Given 使用者未登入（無有效 session） / When 呼叫查詢分數 API / Then 回傳 401，不回傳任何分數資料",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/api/score-query/by-month/route.test.ts 'returns 401 with no session (AC-14)' PASS，res.status === 401，見 evidence/vitest-score-query.txt。"
+  },
+  {
+    "ac_id": "NFR-1",
+    "given_when_then": "Given 本功能完成 / When 檢查專案 Prisma schema 與 migrations / Then 不新增/修改任何 Prisma schema、不產生新的 migration",
+    "verification_method": "static_review",
+    "result": "PASS",
+    "evidence": "git status 顯示 prisma/schema.prisma 未出現在 modified 或 untracked 清單中；prisma/migrations/ 目錄最新一筆為 20260804000000_add_score_rule_tables（前一個「積分規則設定」feature 的既有 migration，非本次新增），本次改動的檔案僅 src/app/api/score-query/**、src/app/score-query/**、src/lib/score-query.ts(.test.ts)、docs/2026-08-05-score-query/**、src/app/top-nav.tsx（僅新增導覽連結）。"
+  },
+  {
+    "ac_id": "NFR-2",
+    "given_when_then": "Given 積分規則不做版本化 / When 規則異動 / Then 立即套用到所有月份的查詢結果，且無法還原規則變動前的歷史數字（已定案的已知限制，非缺陷）",
+    "verification_method": "static_review",
+    "result": "PASS",
+    "evidence": "src/lib/score-query.ts 的 queryScoresByMonth 每次呼叫皆重新查詢當下的 CategoryScoreRule/OvertimeScoreRule（無任何日期區間篩選或版本欄位），未落地儲存或快取分數結果，符合 spec NFR-2 對「規則異動立即套用、不做版本化」的既定驗收標準；此為 spec 已確認的設計限制，非缺陷，未要求另行測試回溯能力。"
+  },
+  {
+    "ac_id": "NFR-3",
+    "given_when_then": "Given 新增的 API route / When 發生錯誤 / Then 使用 withErrorHandling 包裝、以 AppError 表達客戶端可見的錯誤，不在 route 內另行手刻錯誤分支",
+    "verification_method": "static_review",
+    "result": "PASS",
+    "evidence": "src/app/api/score-query/by-month/route.ts 第 9 行以 withErrorHandling 包裝整個處理邏輯，未見額外 try/catch 或手刻錯誤分支；src/lib/score-query.ts 第 43 行月份格式錯誤時 throw new AppError(400, ...)，符合既有慣例。動態驗證面：score-query.test.ts 的月份格式驗證案例（rejects with status 400）與 route.test.ts 的 401 案例皆 PASS，證實錯誤確實透過此路徑正確傳遞為對應的 HTTP 狀態碼。"
+  }
+]
