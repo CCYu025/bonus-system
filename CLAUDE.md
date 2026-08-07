@@ -30,3 +30,5 @@ Each doc below covers one concern in depth — read the one relevant to your tas
 ## Workflow discipline
 
 New-feature work in this project is expected to go through the `spec → plan → implement → verify` process defined in the sibling `spec-plan` repo's `CLAUDE.md` (`docs/YYYY-MM-DD-{slug}/spec.md` with confirmed AC, then `plan.md`, before implementation). If you're asked to build a feature of any real size and no `spec.md`/`plan.md` exists yet for it, say so before writing code.
+
+**Never commit directly to `main`/`master`.** All work happens on a `feat/YYYY-MM-DD-{slug}` branch, landed via a pull request on GitHub (https://github.com/CCYu025/bonus-system) — never push straight to the default branch, even for small fixes.
