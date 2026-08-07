@@ -19,6 +19,10 @@ jobs:
 
       - run: npm ci
 
+      # src/generated/prisma is gitignored (see docs/database.md) — must
+      # regenerate before typecheck/build/test can resolve @/generated/prisma/client.
+      - run: npx prisma generate
+
       - run: npx tsc --noEmit
 
       - run: npm run lint
