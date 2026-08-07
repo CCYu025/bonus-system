@@ -93,33 +93,59 @@ export default function AttendanceQueryPage() {
             </select>
           </div>
 
-          <table>
-            <thead>
-              <tr>
-                <th>日期</th>
-                <th>工號</th>
-                <th>姓名</th>
-                <th>出勤類別</th>
-                <th>備註</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRows.map((r) => (
-                <tr key={`${r.date}-${r.employeeId}`}>
-                  <td>{r.date}</td>
-                  <td>{r.employeeId}</td>
-                  <td>{r.personName}</td>
-                  <td>{r.categoryName ?? "未填"}</td>
-                  <td>{r.note ?? ""}</td>
-                </tr>
-              ))}
-              {filteredRows.length === 0 && (
+          <div className="table-scroll">
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan={5}>查無資料</td>
+                  <th>日期</th>
+                  <th>工號</th>
+                  <th>姓名</th>
+                  <th>出勤類別</th>
+                  <th>實際產量</th>
+                  <th>加班時數</th>
+                  <th>配合度</th>
+                  <th>3S表現</th>
+                  <th>SOP表現</th>
+                  <th>備註</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredRows.map((r) => (
+                  <tr key={`${r.date}-${r.employeeId}`}>
+                    <td>{r.date}</td>
+                    <td>{r.employeeId}</td>
+                    <td>{r.personName}</td>
+                    <td>{r.categoryName ?? "未填"}</td>
+                    <td>{r.actualQuantity ?? ""}</td>
+                    <td>{r.overtimeHours ?? ""}</td>
+                    <td>{r.complianceRatingName ?? ""}</td>
+                    {/* AC-9：3S表現/SOP表現項目名稱可能是長篇自由文字（比照
+                        forms/[id]/page.tsx AC-13 既有先例），不限寬會讓儲存格
+                        自動換行、column 不會真的超寬，.table-scroll 就永遠不會
+                        觸發捲動。限寬 + 不換行 + 省略號，過長時以 title 顯示全文。 */}
+                    <td
+                      style={{ maxWidth: "150px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                      title={r.threeSPerformanceName ?? undefined}
+                    >
+                      {r.threeSPerformanceName ?? ""}
+                    </td>
+                    <td
+                      style={{ maxWidth: "150px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                      title={r.sopPerformanceName ?? undefined}
+                    >
+                      {r.sopPerformanceName ?? ""}
+                    </td>
+                    <td>{r.note ?? ""}</td>
+                  </tr>
+                ))}
+                {filteredRows.length === 0 && (
+                  <tr>
+                    <td colSpan={10}>查無資料</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
           <h2>類別小計（依目前篩選結果）</h2>
           <table>

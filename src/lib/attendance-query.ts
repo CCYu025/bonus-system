@@ -11,6 +11,11 @@ export type AttendanceQueryRow = {
   categoryId: string | null;
   categoryName: string | null;
   note: string | null;
+  actualQuantity: number | null;
+  overtimeHours: number | null;
+  complianceRatingName: string | null;
+  threeSPerformanceName: string | null;
+  sopPerformanceName: string | null;
 };
 
 // T-1: 依「年月」查詢當月現行有效版本的已核准出勤紀錄。
@@ -33,7 +38,13 @@ export async function queryAttendanceByMonth(month: string): Promise<AttendanceQ
     include: {
       records: {
         where: { voided: false },
-        include: { person: true, category: true },
+        include: {
+          person: true,
+          category: true,
+          complianceRating: true,
+          threeSPerformance: true,
+          sopPerformance: true,
+        },
         orderBy: { person: { employeeId: "asc" } },
       },
     },
@@ -53,6 +64,11 @@ export async function queryAttendanceByMonth(month: string): Promise<AttendanceQ
       categoryId: r.categoryId,
       categoryName: r.category?.name ?? null,
       note: r.note,
+      actualQuantity: r.actualQuantity,
+      overtimeHours: r.overtimeHours,
+      complianceRatingName: r.complianceRating?.name ?? null,
+      threeSPerformanceName: r.threeSPerformance?.name ?? null,
+      sopPerformanceName: r.sopPerformance?.name ?? null,
     }))
   );
 }

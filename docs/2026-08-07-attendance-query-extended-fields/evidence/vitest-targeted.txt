@@ -1,0 +1,49 @@
+
+ RUN  v4.1.10 C:/Users/tomof/OneDrive/桌面/Yu/WorkSpace/bonus-system
+
+applying: 20260729000000_init
+applying: 20260729010000_add_user_session
+applying: 20260801000000_add_attendance_extended_fields
+applying: 20260803000000_add_leave_lock_and_sop_field
+applying: 20260804000000_add_score_rule_tables
+applying: 20260806000000_add_lookup_score_rule_tables
+done.
+ ✓ src/lib/attendance-query.test.ts > queryAttendanceByMonth > returns every approved record within the month, sorted by date 375ms
+ ✓ src/lib/attendance-query.test.ts > queryAttendanceByMonth > excludes records outside the requested month, including adjacent months 226ms
+ ✓ src/lib/attendance-query.test.ts > queryAttendanceByMonth > excludes pending/draft/rejected forms within the month 74ms
+ ✓ src/lib/attendance-query.test.ts > queryAttendanceByMonth > still returns a terminated person's records within the month 139ms
+ ✓ src/lib/attendance-query.test.ts > queryAttendanceByMonth > only counts the current live version after a void-and-resubmit cycle 216ms
+ ✓ src/lib/attendance-query.test.ts > queryAttendanceByMonth > rejects a missing or malformed month 6ms
+ ✓ src/lib/attendance-query.test.ts > queryAttendanceByMonth > excludes 未填 records from an approved form's results 138ms
+ ✓ src/lib/attendance-query.test.ts > queryAttendanceByMonth > includes a person after their previously-未填 record is filled in via void-and-resubmit 201ms
+ ✓ src/lib/attendance-query.test.ts > queryAttendanceByMonth > includes a person after their previously-未填 record is filled in following a rejection 182ms
+ ✓ src/lib/attendance-query.test.ts > 擴充欄位（實際產量／加班時數／配合度／3S表現／SOP表現）(spec 2026-08-07-attendance-query-extended-fields) > returns the actualQuantity value when filled (AC-1) 122ms
+ ✓ src/lib/attendance-query.test.ts > 擴充欄位（實際產量／加班時數／配合度／3S表現／SOP表現）(spec 2026-08-07-attendance-query-extended-fields) > returns the overtimeHours value when filled (AC-2) 131ms
+ ✓ src/lib/attendance-query.test.ts > 擴充欄位（實際產量／加班時數／配合度／3S表現／SOP表現）(spec 2026-08-07-attendance-query-extended-fields) > returns the compliance rating name when set (AC-3) 144ms
+ ✓ src/lib/attendance-query.test.ts > 擴充欄位（實際產量／加班時數／配合度／3S表現／SOP表現）(spec 2026-08-07-attendance-query-extended-fields) > returns the 3S performance name when set (AC-4) 153ms
+ ✓ src/lib/attendance-query.test.ts > 擴充欄位（實際產量／加班時數／配合度／3S表現／SOP表現）(spec 2026-08-07-attendance-query-extended-fields) > returns the SOP performance name when set (AC-5) 137ms
+ ✓ src/lib/attendance-query.test.ts > 擴充欄位（實際產量／加班時數／配合度／3S表現／SOP表現）(spec 2026-08-07-attendance-query-extended-fields) > returns null for all five extended fields when left unfilled (AC-6) 128ms
+ ✓ src/lib/attendance-query.test.ts > 擴充欄位（實際產量／加班時數／配合度／3S表現／SOP表現）(spec 2026-08-07-attendance-query-extended-fields) > returns null for all five extended fields when the category locks them, even if values were submitted (AC-7) 188ms
+ ✓ src/lib/attendance-query.test.ts > 工號更正後查詢結果即時反映新值 (spec 2026-07-31-attendance-record-personid-migration AC-4) > shows the corrected employeeId for historical approved records 142ms
+ ✓ src/app/attendance-query/page.test.tsx > AttendanceQueryPage > renders the five extended-field columns after 出勤類別 (FR-1) 217ms
+ ✓ src/app/attendance-query/page.test.tsx > AttendanceQueryPage > displays the filled extended-field values (AC-1~AC-5) 45ms
+ ✓ src/app/attendance-query/page.test.tsx > AttendanceQueryPage > shows blank (not 未填 text) for unfilled extended fields (AC-6/AC-7) 40ms
+ ✓ src/app/attendance-query/filters.test.ts > derivePersonOptions > dedupes person names and returns them in a stable sorted order 12ms
+ ✓ src/app/attendance-query/filters.test.ts > derivePersonOptions > returns an empty list for no rows 0ms
+ ✓ src/app/attendance-query/filters.test.ts > deriveCategoryOptions > dedupes by categoryId and returns a stable sorted order by name 0ms
+ ✓ src/app/attendance-query/filters.test.ts > deriveCategoryOptions > appends a 未填 option last only when a null-category row exists 0ms
+ ✓ src/app/attendance-query/filters.test.ts > filterRows > returns everything when no filters are set 0ms
+ ✓ src/app/attendance-query/filters.test.ts > filterRows > filters by exact person name 0ms
+ ✓ src/app/attendance-query/filters.test.ts > filterRows > filters by exact category id 0ms
+ ✓ src/app/attendance-query/filters.test.ts > filterRows > filters by the 未填 sentinel to match null categoryId 0ms
+ ✓ src/app/attendance-query/filters.test.ts > filterRows > combines person and category filters (AND, not OR) 0ms
+ ✓ src/app/attendance-query/filters.test.ts > filterRows > returns nothing when the combination matches no row 0ms
+ ✓ src/app/attendance-query/filters.test.ts > computeCategorySubtotals > counts records per category label, using 未填 for null categories 0ms
+ ✓ src/app/attendance-query/filters.test.ts > computeCategorySubtotals > returns an empty list for no rows 0ms
+ ✓ src/app/attendance-query/filters.test.ts > computeCategorySubtotals > groups only by categoryName, ignoring differing extended-field values (AC-8) 0ms
+
+ Test Files  3 passed (3)
+      Tests  33 passed (33)
+   Start at  11:15:56
+   Duration  6.14s (transform 433ms, setup 49ms, import 860ms, tests 3.02s, environment 1.17s)
+

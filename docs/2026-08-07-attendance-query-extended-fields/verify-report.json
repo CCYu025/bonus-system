@@ -1,0 +1,72 @@
+[
+  {
+    "ac_id": "AC-1",
+    "given_when_then": "Given 某筆出勤紀錄的「實際產量」已填寫為正整數 / When 開發者查詢該月的出勤資料 / Then 查詢結果表格中「實際產量」欄位顯示該數值",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-query.test.ts::擴充欄位...describe block > \"returns the actualQuantity value when filled (AC-1)\" PASS（寫入 actualQuantity:42，斷言 result[0].actualQuantity===42）；src/app/attendance-query/page.test.tsx > \"displays the filled extended-field values (AC-1~AC-5)\" PASS（mock 資料 actualQuantity:42，斷言渲染儲存格文字為 \"42\"）。完整輸出見 evidence/vitest-targeted.txt（33/33 通過）與 evidence/vitest-run.txt（全專案 247/247 通過，本機重跑，未照抄提供數字）。另以獨立啟動的 Playwright 瀏覽器（非專案內建測試，僅供本次驗證使用，未寫入專案）登入 http://localhost:3000 真實 dev server，查詢 2026-08 月資料，實測 2026-08-04 00001 胡答列「實際產量」欄顯示 \"100\"，見 evidence/field-values-live-check.txt。"
+  },
+  {
+    "ac_id": "AC-2",
+    "given_when_then": "Given 某筆出勤紀錄的「加班時數」已填寫為 1–12 之間的整數 / When 開發者查詢該月的出勤資料 / Then 查詢結果表格中「加班時數」欄位顯示該數值",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-query.test.ts > \"returns the overtimeHours value when filled (AC-2)\" PASS（寫入 overtimeHours:3，斷言 result[0].overtimeHours===3）；page.test.tsx > \"displays the filled extended-field values (AC-1~AC-5)\" PASS（mock overtimeHours:3，儲存格顯示 \"3\"）。見 evidence/vitest-targeted.txt。獨立 Playwright 實測：2026-08-06 多筆列（00001~00013）「加班時數」欄分別顯示 3、2、1、1、4、3、6、9 等對應數值，見 evidence/field-values-live-check.txt。"
+  },
+  {
+    "ac_id": "AC-3",
+    "given_when_then": "Given 某筆出勤紀錄已設定「配合度」項目 / When 開發者查詢該月的出勤資料 / Then 查詢結果表格中「配合度」欄位顯示該項目的名稱",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-query.test.ts > \"returns the compliance rating name when set (AC-3)\" PASS（建立 complianceRating name=\"跨崗位\"，斷言 result[0].complianceRatingName===\"跨崗位\"）；page.test.tsx 同步斷言渲染值 \"跨崗位\"。見 evidence/vitest-targeted.txt。獨立 Playwright 實測：2026-08-06 00001/00002/00003/00009/00010/00012 等列「配合度」欄顯示 \"跨崗位\"，未設定者顯示空白，見 evidence/field-values-live-check.txt。"
+  },
+  {
+    "ac_id": "AC-4",
+    "given_when_then": "Given 某筆出勤紀錄已設定「3S表現」項目 / When 開發者查詢該月的出勤資料 / Then 查詢結果表格中「3S表現」欄位顯示該項目的名稱",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-query.test.ts > \"returns the 3S performance name when set (AC-4)\" PASS（建立 threeSPerformance name=\"正常\"，斷言 result[0].threeSPerformanceName===\"正常\"）；page.test.tsx 同步斷言。見 evidence/vitest-targeted.txt。獨立 Playwright 實測：多筆列「3S表現」欄顯示 \"正常\"，2026-08-06 00003/00004/00011/00012 列顯示長篇文字（例如「偶有缺失，經主管口頭提醒後能立即改善。」「屢勸不聽，或因環境髒亂影響5S/環安衛檢查。」），textContent 完整未被截斷（僅 CSS 視覺省略號，title 屬性可查看全文，比照既有 AC-13 先例），見 evidence/field-values-live-check.txt 與截圖 evidence/ac9-desktop-1280.png。"
+  },
+  {
+    "ac_id": "AC-5",
+    "given_when_then": "Given 某筆出勤紀錄已設定「SOP表現」項目 / When 開發者查詢該月的出勤資料 / Then 查詢結果表格中「SOP表現」欄位顯示該項目的名稱",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-query.test.ts > \"returns the SOP performance name when set (AC-5)\" PASS（建立 sopPerformance name=\"正常\"，斷言 result[0].sopPerformanceName===\"正常\"）；page.test.tsx 同步斷言。見 evidence/vitest-targeted.txt。獨立 Playwright 實測：多筆列「SOP表現」欄顯示 \"正常\"，部分列顯示長篇文字（例如「不按SOP操作，導致安全隱患、設備損壞或品質異常。」），資料完整未流失，見 evidence/field-values-live-check.txt。"
+  },
+  {
+    "ac_id": "AC-6",
+    "given_when_then": "Given 某筆出勤紀錄的出勤類別已填寫，但實際產量、加班時數、配合度、3S表現、SOP表現皆未填寫（值為 null） / When 開發者查詢該月的出勤資料 / Then 這五個欄位皆顯示空白，不顯示任何文字",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-query.test.ts > \"returns null for all five extended fields when left unfilled (AC-6)\" PASS（seedApprovedForm 不指定五個擴充欄位，斷言五者皆為 null）；page.test.tsx > \"shows blank (not 未填 text) for unfilled extended fields (AC-6/AC-7)\" PASS（mock 全 null，斷言五個儲存格 textContent 為空字串，且 queryByText(\"未填\") 為 null）。見 evidence/vitest-targeted.txt。獨立 Playwright 實測：2026-08-04 00003 陳志雄「加班時數」欄、多筆「配合度」欄等未填欄位皆顯示空白字串，畫面上未見任何「未填」文字，見 evidence/field-values-live-check.txt。"
+  },
+  {
+    "ac_id": "AC-7",
+    "given_when_then": "Given 某筆出勤紀錄的出勤類別為會鎖定擴充欄位的類別（例如特休、事假），該五個擴充欄位因此在資料庫中被強制存為 null / When 開發者查詢該月的出勤資料 / Then 這五個欄位顯示空白，不額外標示或區分",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-query.test.ts > \"returns null for all five extended fields when the category locks them, even if values were submitted (AC-7)\" PASS——建立 locksExtendedFields:true 的「事假」類別，saveFormRecords 時實際帶入 actualQuantity:5/overtimeHours:2/三個關聯 id，斷言查詢結果五欄仍全為 null（驗證既有 saveFormRecords 強制清空機制被查詢層正確透傳，非本次修改範圍）；page.test.tsx 的 AC-6/AC-7 合併斷言涵蓋前端渲染路徑同一段程式碼無分支判斷。見 evidence/vitest-targeted.txt。獨立 Playwright 實測：2026-08-04/05/06 多筆「特休」「事假」「病假」類別列（00005~00009、00013~00016 等）五個擴充欄位皆顯示空白，與一般未填視覺上完全一致，未額外標示，見 evidence/field-values-live-check.txt 與截圖 evidence/ac9-desktop-1280.png。"
+  },
+  {
+    "ac_id": "AC-8",
+    "given_when_then": "Given 開發者在查詢頁面篩選姓名或出勤類別後得到一組結果 / When 檢視畫面下方的「類別小計」表格 / Then 小計表格仍只依「出勤類別」統計筆數，不因新增的五個欄位而新增額外的小計維度",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/attendance-query/filters.test.ts > computeCategorySubtotals > \"groups only by categoryName, ignoring differing extended-field values (AC-8)\" PASS——兩筆 categoryName 相同但五個擴充欄位值互不相同（含 null）的 rows，斷言小計結果仍為單一分組 [[\"加班\",2]]，未因擴充欄位值不同拆分。見 evidence/vitest-targeted.txt。獨立 Playwright 實測 2026-08 月真實資料：類別小計顯示 正常出勤24/特休5/事假3/病假5/假日加班11，共 5 個分組，等於出勤類別種類數，未因擴充欄位新增任何分組，見 evidence/field-values-live-check.txt。"
+  },
+  {
+    "ac_id": "AC-9",
+    "given_when_then": "Given 查詢結果表格因新增五個欄位而超出畫面寬度 / When 開發者在較窄的畫面（如筆電螢幕）檢視查詢結果 / Then 表格可橫向捲動檢視完整欄位，資料不被裁切或遮蔽",
+    "verification_method": "manual_log",
+    "result": "PASS",
+    "evidence": "本 AC 屬真實排版/是否可捲動類別，jsdom 驗不到。依驗證優先順序檢查：Glob 確認 {PROJECT_ROOT}/playwright.config.ts 不存在（`ls playwright.config.*` 回傳 No such file），與 plan.md「技術決策記錄」/「測試層級判斷」記載一致，故不採 playwright 方法，退回 static_review + manual_log 組合（同專案既有先例 docs/2026-08-03-attendance-leave-lock-sop-field AC-13）。static_review：src/app/attendance-query/page.tsx 第96行 `<div className=\"table-scroll\">` 包住主表格，第148行對應關閉，未修改 src/app/globals.css 第92-95行既有 `.table-scroll{overflow-x:auto}` 定義，符合技術決策記錄第3項。manual_log（未採信使用者提供數字，改用臨時建立的 Playwright 瀏覽器獨立重現，腳本與瀏覽器僅安裝於本次驗證用的 scratchpad 暫存環境，未寫入 bonus-system 專案或新增任何依賴/設定檔）：以 admin/admin1234 登入 http://localhost:3000 真實 dev server，查詢 2026-08 月資料（48 筆）後量測：(1) 1280px 桌面寬度：.table-scroll scrollWidth=928=clientWidth=928，document.documentElement scrollWidth=1280=clientWidth=1280，未觸發不必要捲動；(2) 480px 窄螢幕：.table-scroll scrollWidth=644 > clientWidth=448（canScroll=true），document.documentElement scrollWidth=480=clientWidth=480（頁面本身未溢出，捲動被限制在表格容器內）；(3) 實際將 el.scrollLeft 設為100 可成功生效，證實容器真的可捲動而非僅視覺上超寬。與使用者提供數字（642 vs 644、448 相同）數值高度吻合，差異在誤差範圍內（不同 session 字型渲染微差），視為獨立覆核通過。完整輸出見 evidence/ac9-playwright-check.txt，截圖見 evidence/ac9-desktop-1280.png、evidence/ac9-narrow-480.png。額外技術決策評估（3S表現/SOP表現 <td> 加 maxWidth:150px+whiteSpace:nowrap+ellipsis+title，plan.md 未明文但屬實作階段合理調整）：審查認為合理且風險低——(a) 比照專案既有先例 forms/[id]/page.tsx 對應 AC-13 的完全相同手法，非新設計；(b) 若不限寬，純文字儲存格會自動換行，column 內容雖多卻不會撐寬容器，.table-scroll 的 overflow-x:auto 確實不會被觸發，AC-9 的 Given 前提（表格超出畫面寬度）在只有短文字資料時不成立，這點已由本次獨立 Playwright 量測證實 scrollWidth 644 明顯大於 clientWidth 448，可歸因於欄位總寬度含這兩欄的限寬設計；(c) 視覺截斷不等於資料流失——Playwright 實測 textContent 顯示完整長句（如「偶有缺失，經主管口頭提醒後能立即改善。」），title 屬性亦帶完整文字，符合 AC-9 Then 子句「資料不被裁切或遮蔽」的既有詮釋（與 AC-13 precedent 一致）。不視為偏離 plan，屬合理技術決策。"
+  },
+  {
+    "ac_id": "NFR-1",
+    "given_when_then": "標準：queryAttendanceByMonth 對配合度／3S表現／SOP表現三個關聯改用 Prisma include 隨主查詢一次撈取，不得在迴圈中對每筆紀錄額外查詢資料庫。",
+    "verification_method": "static_review",
+    "result": "PASS",
+    "evidence": "逐行審查 src/lib/attendance-query.ts：第32-52行整段查詢只有一次 `prisma.attendanceForm.findMany` 呼叫；第38-49行 `include.records.include` 物件同時宣告 person/category/complianceRating/threeSPerformance/sopPerformance 五個關聯，隨主查詢一次撈取；第59-73行 `forms.flatMap(...).map(...)` 純資料映射（`r.complianceRating?.name` 等直接讀取已由 include 撈回的關聯物件），迴圈內（`flatMap`/`map` 之內）未出現任何 `await prisma.*` 或其他資料庫呼叫。符合 NFR-1「不得引入 N+1」標準，與既有 person/category 的 include 設計完全一致，非新架構決策，與 plan.md「衝突事項」章節「無」的結論一致。"
+  }
+]

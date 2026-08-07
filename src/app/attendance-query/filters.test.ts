@@ -16,6 +16,11 @@ function row(overrides: Partial<AttendanceQueryRow>): AttendanceQueryRow {
     categoryId: "cat-ot",
     categoryName: "加班",
     note: null,
+    actualQuantity: null,
+    overtimeHours: null,
+    complianceRatingName: null,
+    threeSPerformanceName: null,
+    sopPerformanceName: null,
     ...overrides,
   };
 }
@@ -119,5 +124,31 @@ describe("computeCategorySubtotals", () => {
 
   it("returns an empty list for no rows", () => {
     expect(computeCategorySubtotals([])).toEqual([]);
+  });
+
+  // AC-8: extended fields (實際產量/加班時數/配合度/3S表現/SOP表現) must not
+  // introduce extra subtotal dimensions — grouping stays by categoryName only.
+  it("groups only by categoryName, ignoring differing extended-field values (AC-8)", () => {
+    const rows = [
+      row({
+        categoryId: "cat-ot",
+        categoryName: "加班",
+        actualQuantity: 10,
+        overtimeHours: 3,
+        complianceRatingName: "跨崗位",
+        threeSPerformanceName: "正常",
+        sopPerformanceName: "正常",
+      }),
+      row({
+        categoryId: "cat-ot",
+        categoryName: "加班",
+        actualQuantity: null,
+        overtimeHours: null,
+        complianceRatingName: null,
+        threeSPerformanceName: null,
+        sopPerformanceName: null,
+      }),
+    ];
+    expect(computeCategorySubtotals(rows)).toEqual([["加班", 2]]);
   });
 });

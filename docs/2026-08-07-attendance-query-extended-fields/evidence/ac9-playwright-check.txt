@@ -1,0 +1,7 @@
+after login, url = http://localhost:3000/
+row count in first table: 48
+headers: ["日期","工號","姓名","出勤類別","實際產量","加班時數","配合度","3S表現","SOP表現","備註"]
+desktop(1280) metrics: {"tableScrollWidth":928,"tableClientWidth":928,"docScrollWidth":1280,"docClientWidth":1280}
+narrow(480) metrics: {"tableScrollWidth":644,"tableClientWidth":448,"docScrollWidth":480,"docClientWidth":480,"canScroll":true}
+scroll interaction test: {"scrollLeftAfterSet":100}
+RESULT: SUCCESS

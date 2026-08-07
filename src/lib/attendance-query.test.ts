@@ -19,8 +19,26 @@ async function seedPerson(employeeId = "E001", name = "王小明") {
   return prisma.person.create({ data: { employeeId, name } });
 }
 
-async function seedCategory(code = "OT", name = "加班") {
-  return prisma.attendanceCategory.create({ data: { code, name } });
+async function seedCategory(
+  code = "OT",
+  name = "加班",
+  opts: { locksExtendedFields?: boolean } = {}
+) {
+  return prisma.attendanceCategory.create({
+    data: { code, name, locksExtendedFields: opts.locksExtendedFields ?? false },
+  });
+}
+
+async function seedComplianceRating(code = "CROSS_POST", name = "跨崗位") {
+  return prisma.complianceRating.create({ data: { code, name, sortOrder: 1 } });
+}
+
+async function seedThreeSPerformance(code = "NORMAL_3S", name = "正常") {
+  return prisma.threeSPerformance.create({ data: { code, name, sortOrder: 1 } });
+}
+
+async function seedSopPerformance(code = "NORMAL_SOP", name = "正常") {
+  return prisma.sopPerformance.create({ data: { code, name, sortOrder: 1 } });
 }
 
 // Builds an approved form for a date with the given employee/category assignments.
@@ -183,6 +201,134 @@ describe("queryAttendanceByMonth", () => {
 
     const result = await queryAttendanceByMonth("2026-01");
     expect(result.map((r) => r.employeeId).sort()).toEqual(["E001", "E002"]);
+  });
+});
+
+describe("擴充欄位（實際產量／加班時數／配合度／3S表現／SOP表現）(spec 2026-08-07-attendance-query-extended-fields)", () => {
+  // AC-1
+  it("returns the actualQuantity value when filled (AC-1)", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+    await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id, actualQuantity: 42 },
+    ]);
+    await submitForm(form.id, "班長甲");
+    await approveForm(form.id, "主管");
+
+    const result = await queryAttendanceByMonth("2026-01");
+    expect(result[0].actualQuantity).toBe(42);
+  });
+
+  // AC-2
+  it("returns the overtimeHours value when filled (AC-2)", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+    await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id, overtimeHours: 3 },
+    ]);
+    await submitForm(form.id, "班長甲");
+    await approveForm(form.id, "主管");
+
+    const result = await queryAttendanceByMonth("2026-01");
+    expect(result[0].overtimeHours).toBe(3);
+  });
+
+  // AC-3
+  it("returns the compliance rating name when set (AC-3)", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    const compliance = await seedComplianceRating();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+    await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id, complianceRatingId: compliance.id },
+    ]);
+    await submitForm(form.id, "班長甲");
+    await approveForm(form.id, "主管");
+
+    const result = await queryAttendanceByMonth("2026-01");
+    expect(result[0].complianceRatingName).toBe("跨崗位");
+  });
+
+  // AC-4
+  it("returns the 3S performance name when set (AC-4)", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    const threeS = await seedThreeSPerformance();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+    await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id, threeSPerformanceId: threeS.id },
+    ]);
+    await submitForm(form.id, "班長甲");
+    await approveForm(form.id, "主管");
+
+    const result = await queryAttendanceByMonth("2026-01");
+    expect(result[0].threeSPerformanceName).toBe("正常");
+  });
+
+  // AC-5
+  it("returns the SOP performance name when set (AC-5)", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    const sop = await seedSopPerformance();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+    await saveFormRecords(form.id, "班長甲", [
+      { employeeId: "E001", categoryId: category.id, sopPerformanceId: sop.id },
+    ]);
+    await submitForm(form.id, "班長甲");
+    await approveForm(form.id, "主管");
+
+    const result = await queryAttendanceByMonth("2026-01");
+    expect(result[0].sopPerformanceName).toBe("正常");
+  });
+
+  // AC-6
+  it("returns null for all five extended fields when left unfilled (AC-6)", async () => {
+    await seedPerson("E001", "王小明");
+    const category = await seedCategory();
+    await seedApprovedForm("2026-01-01", [{ employeeId: "E001", categoryId: category.id }]);
+
+    const result = await queryAttendanceByMonth("2026-01");
+    expect(result[0]).toMatchObject({
+      actualQuantity: null,
+      overtimeHours: null,
+      complianceRatingName: null,
+      threeSPerformanceName: null,
+      sopPerformanceName: null,
+    });
+  });
+
+  // AC-7
+  it("returns null for all five extended fields when the category locks them, even if values were submitted (AC-7)", async () => {
+    await seedPerson("E001", "王小明");
+    const leave = await seedCategory("PERSONAL_LEAVE", "事假", { locksExtendedFields: true });
+    const compliance = await seedComplianceRating();
+    const threeS = await seedThreeSPerformance();
+    const sop = await seedSopPerformance();
+    const form = await createDailyForm("2026-01-01", "班長甲");
+    await saveFormRecords(form.id, "班長甲", [
+      {
+        employeeId: "E001",
+        categoryId: leave.id,
+        actualQuantity: 5,
+        overtimeHours: 2,
+        complianceRatingId: compliance.id,
+        threeSPerformanceId: threeS.id,
+        sopPerformanceId: sop.id,
+      },
+    ]);
+    await submitForm(form.id, "班長甲");
+    await approveForm(form.id, "主管");
+
+    const result = await queryAttendanceByMonth("2026-01");
+    expect(result[0]).toMatchObject({
+      actualQuantity: null,
+      overtimeHours: null,
+      complianceRatingName: null,
+      threeSPerformanceName: null,
+      sopPerformanceName: null,
+    });
   });
 });
 

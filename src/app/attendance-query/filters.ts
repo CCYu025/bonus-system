@@ -5,6 +5,11 @@ export type AttendanceQueryRow = {
   categoryId: string | null;
   categoryName: string | null;
   note: string | null;
+  actualQuantity: number | null;
+  overtimeHours: number | null;
+  complianceRatingName: string | null;
+  threeSPerformanceName: string | null;
+  sopPerformanceName: string | null;
 };
 
 export const NO_CATEGORY = "__NONE__";
