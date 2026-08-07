@@ -13,7 +13,10 @@ const mockRows = [
     personName: "王小明",
     categoryScore: 200,
     overtimeScore: 25,
-    totalScore: 225,
+    complianceScore: 10,
+    threeSScore: 5,
+    sopScore: 0,
+    totalScore: 240,
     records: [
       {
         date: "2026-01-02",
@@ -22,7 +25,10 @@ const mockRows = [
         categoryPoints: 100,
         overtimeHours: null,
         overtimePoints: 0,
-        subtotal: 100,
+        complianceRatingPoints: 10,
+        threeSPerformancePoints: 5,
+        sopPerformancePoints: 0,
+        subtotal: 115,
       },
       {
         date: "2026-01-10",
@@ -31,6 +37,9 @@ const mockRows = [
         categoryPoints: 100,
         overtimeHours: 2,
         overtimePoints: 25,
+        complianceRatingPoints: 0,
+        threeSPerformancePoints: 0,
+        sopPerformancePoints: 0,
         subtotal: 125,
       },
     ],
@@ -40,6 +49,9 @@ const mockRows = [
     personName: "李小華",
     categoryScore: 0,
     overtimeScore: 0,
+    complianceScore: 0,
+    threeSScore: 0,
+    sopScore: 0,
     totalScore: 0,
     records: [],
   },
@@ -70,12 +82,15 @@ describe("ScoreQueryPage", () => {
     expect(document.querySelectorAll("select")).toHaveLength(0);
   });
 
-  it("renders the summary table with 工號/姓名/出勤類別分/加班分/總分 columns (AC-1)", async () => {
+  it("renders the summary table with 工號/姓名/出勤類別分/加班分/配合度分/3S分/SOP分/總分 columns (AC-1)", async () => {
     await search();
     expect(screen.getByRole("columnheader", { name: "工號" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "姓名" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "出勤類別分" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "加班分" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "配合度分" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "3S分" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "SOP分" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "總分" })).toBeInTheDocument();
   });
 
@@ -86,10 +101,10 @@ describe("ScoreQueryPage", () => {
     // with nothing expanded yet there should be exactly 2 body rows.
     expect(rows).toHaveLength(2);
     expect(within(rows[0]).getByText("E001")).toBeInTheDocument();
-    expect(within(rows[0]).getByText("225")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("240")).toBeInTheDocument();
     expect(within(rows[1]).getByText("E002")).toBeInTheDocument();
-    // 出勤類別分／加班分／總分三欄皆為 0（AC-10）。
-    expect(within(rows[1]).getAllByText("0")).toHaveLength(3);
+    // 出勤類別分／加班分／配合度分／3S分／SOP分／總分六欄皆為 0（AC-10）。
+    expect(within(rows[1]).getAllByText("0")).toHaveLength(6);
   });
 
   it("expands a person's row to show per-record detail on click, and collapses on a second click (AC-9)", async () => {

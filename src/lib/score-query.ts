@@ -22,6 +22,9 @@ export type ScoreRecordDetail = {
   categoryPoints: number;
   overtimeHours: number | null;
   overtimePoints: number;
+  complianceRatingPoints: number;
+  threeSPerformancePoints: number;
+  sopPerformancePoints: number;
   subtotal: number;
 };
 
@@ -30,6 +33,9 @@ export type PersonScoreSummary = {
   personName: string;
   categoryScore: number;
   overtimeScore: number;
+  complianceScore: number;
+  threeSScore: number;
+  sopScore: number;
   totalScore: number;
   records: ScoreRecordDetail[];
 };
@@ -43,7 +49,15 @@ export async function queryScoresByMonth(month: string): Promise<PersonScoreSumm
     throw new AppError(400, "請提供正確的年月格式（YYYY-MM）");
   }
 
-  const [forms, categoryScoreRules, overtimeScoreRules, activePersons] = await Promise.all([
+  const [
+    forms,
+    categoryScoreRules,
+    overtimeScoreRules,
+    complianceRatingScoreRules,
+    threeSPerformanceScoreRules,
+    sopPerformanceScoreRules,
+    activePersons,
+  ] = await Promise.all([
     prisma.attendanceForm.findMany({
       where: {
         status: "approved",
@@ -59,6 +73,12 @@ export async function queryScoresByMonth(month: string): Promise<PersonScoreSumm
     }),
     prisma.categoryScoreRule.findMany(),
     prisma.overtimeScoreRule.findMany(),
+    // docs/2026-08-06-score-rules-lookup-scoring：比照既有 categoryScoreRules 的
+    // 查詢與加總方式，逐筆讀取三個規則表（不經過各自的 isActive 過濾清單函式，
+    // 停用項目先前設定的積分仍要生效，見 plan.md 技術決策記錄 3）。
+    prisma.complianceRatingScoreRule.findMany(),
+    prisma.threeSPerformanceScoreRule.findMany(),
+    prisma.sopPerformanceScoreRule.findMany(),
     // T-2：人員清單聯集的第一半——目前在職的所有人員，即使當月無任何合格紀錄
     // 也要出現（AC-10）。第二半（當月才離職但當月有合格紀錄的人員，AC-11）
     // 靠下面逐筆處理紀錄時「查無現有 summary 就建立」自然涵蓋，不需要另外查
@@ -67,11 +87,37 @@ export async function queryScoresByMonth(month: string): Promise<PersonScoreSumm
   ]);
 
   const categoryPointsMap = new Map(categoryScoreRules.map((r) => [r.categoryId, r.points]));
+  const complianceRatingPointsMap = new Map(
+    complianceRatingScoreRules.map((r) => [r.complianceRatingId, r.points])
+  );
+  const threeSPerformancePointsMap = new Map(
+    threeSPerformanceScoreRules.map((r) => [r.threeSPerformanceId, r.points])
+  );
+  const sopPerformancePointsMap = new Map(
+    sopPerformanceScoreRules.map((r) => [r.sopPerformanceId, r.points])
+  );
 
   // T-3/T-4/T-5：依出勤類別分/加班分規則計算單筆紀錄的兩個分數。
   function categoryPointsFor(categoryId: string | null): number {
     if (categoryId === null) return 0;
     return categoryPointsMap.get(categoryId) ?? 0;
+  }
+
+  // 配合度／3S表現／SOP表現：未填寫（null）或查無規則（未設定積分）皆計為 0 分，
+  // 是同一段邏輯的兩種觸發條件，不需分開處理（AC-10 的未填寫與 AC-11 的未設定積分）。
+  function complianceRatingPointsFor(complianceRatingId: string | null): number {
+    if (complianceRatingId === null) return 0;
+    return complianceRatingPointsMap.get(complianceRatingId) ?? 0;
+  }
+
+  function threeSPerformancePointsFor(threeSPerformanceId: string | null): number {
+    if (threeSPerformanceId === null) return 0;
+    return threeSPerformancePointsMap.get(threeSPerformanceId) ?? 0;
+  }
+
+  function sopPerformancePointsFor(sopPerformanceId: string | null): number {
+    if (sopPerformanceId === null) return 0;
+    return sopPerformancePointsMap.get(sopPerformanceId) ?? 0;
   }
 
   function overtimeTierPoints(overtimeType: "weekday" | "holiday", hours: number): number {
@@ -106,6 +152,9 @@ export async function queryScoresByMonth(month: string): Promise<PersonScoreSumm
         personName,
         categoryScore: 0,
         overtimeScore: 0,
+        complianceScore: 0,
+        threeSScore: 0,
+        sopScore: 0,
         totalScore: 0,
         records: [],
       };
@@ -132,10 +181,21 @@ export async function queryScoresByMonth(month: string): Promise<PersonScoreSumm
 
       const categoryPoints = categoryPointsFor(record.categoryId);
       const overtimePoints = overtimePointsFor(record.category?.code, record.overtimeHours);
-      const subtotal = categoryPoints + overtimePoints;
+      const complianceRatingPoints = complianceRatingPointsFor(record.complianceRatingId);
+      const threeSPerformancePoints = threeSPerformancePointsFor(record.threeSPerformanceId);
+      const sopPerformancePoints = sopPerformancePointsFor(record.sopPerformanceId);
+      const subtotal =
+        categoryPoints +
+        overtimePoints +
+        complianceRatingPoints +
+        threeSPerformancePoints +
+        sopPerformancePoints;
 
       summary.categoryScore += categoryPoints;
       summary.overtimeScore += overtimePoints;
+      summary.complianceScore += complianceRatingPoints;
+      summary.threeSScore += threeSPerformancePoints;
+      summary.sopScore += sopPerformancePoints;
       summary.totalScore += subtotal;
       summary.records.push({
         date: form.date,
@@ -144,6 +204,9 @@ export async function queryScoresByMonth(month: string): Promise<PersonScoreSumm
         categoryPoints,
         overtimeHours: record.overtimeHours,
         overtimePoints,
+        complianceRatingPoints,
+        threeSPerformancePoints,
+        sopPerformancePoints,
         subtotal,
       });
     }

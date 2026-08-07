@@ -4,7 +4,7 @@
 // 不 import @/lib/prisma，不觸發任何 DB 連線。
 import "../../../test/jsdom-setup";
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import ScoreRulesPage from "./page";
 
 vi.mock("@/lib/auth-client", () => ({
@@ -41,6 +41,31 @@ vi.mock("@/lib/auth-client", () => ({
         ],
       };
     }
+    if (url === "/api/compliance-rating-score-rules") {
+      return {
+        ok: true,
+        json: async () => [
+          { complianceRatingId: "cr1", name: "跨崗位", points: null, isActive: true },
+        ],
+      };
+    }
+    if (url === "/api/three-s-performance-score-rules") {
+      return {
+        ok: true,
+        json: async () => [
+          { threeSPerformanceId: "s1", name: "正常", points: null, isActive: true, isLocked: true },
+          { threeSPerformanceId: "s2", name: "異常", points: null, isActive: false, isLocked: false },
+        ],
+      };
+    }
+    if (url === "/api/sop-performance-score-rules") {
+      return {
+        ok: true,
+        json: async () => [
+          { sopPerformanceId: "p1", name: "正常", points: null, isActive: true, isLocked: true },
+        ],
+      };
+    }
     return { ok: false, json: async () => ({}) };
   }),
 }));
@@ -72,5 +97,46 @@ describe("ScoreRulesPage", () => {
     const holidayRow = screen.getByText("積分由加班規則決定").closest("li");
     expect(holidayRow?.querySelector("input")).toBeNull();
     expect(holidayRow?.querySelector("button")).toBeNull();
+  });
+
+  it("renders 配合度／3S表現／SOP表現 section headings, in that order after 出勤類別/加班", async () => {
+    render(<ScoreRulesPage />);
+    await screen.findByText("跨崗位");
+    const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(headings).toEqual(["出勤類別", "加班", "配合度", "3S表現", "SOP表現"]);
+  });
+
+  it("does not render an input or button for the locked 正常 row in 3S表現 (AC-2)", async () => {
+    render(<ScoreRulesPage />);
+    await screen.findByText("跨崗位");
+
+    const threeSSection = screen.getByRole("heading", { name: "3S表現" }).closest("section");
+    const normalRow = within(threeSSection!).getByText("正常").closest("li");
+    expect(within(normalRow!).getByText("系統鎖定，不可設定積分")).toBeInTheDocument();
+    expect(normalRow?.querySelector("input")).toBeNull();
+    expect(normalRow?.querySelector("button")).toBeNull();
+  });
+
+  it("does not render an input or button for the locked 正常 row in SOP表現 (AC-3)", async () => {
+    render(<ScoreRulesPage />);
+    await screen.findByText("跨崗位");
+
+    const sopSection = screen.getByRole("heading", { name: "SOP表現" }).closest("section");
+    const normalRow = within(sopSection!).getByText("正常").closest("li");
+    expect(within(normalRow!).getByText("系統鎖定，不可設定積分")).toBeInTheDocument();
+    expect(normalRow?.querySelector("input")).toBeNull();
+    expect(normalRow?.querySelector("button")).toBeNull();
+  });
+
+  it("shows a 停用 badge and no input/button for a disabled 3S表現 item, even in edit mode (AC-7)", async () => {
+    render(<ScoreRulesPage />);
+    await screen.findByText("異常");
+
+    fireEvent.click(screen.getByRole("button", { name: "切換為編輯模式" }));
+
+    const disabledRow = screen.getByText("異常").closest("li");
+    expect(within(disabledRow!).getByText("停用")).toBeInTheDocument();
+    expect(disabledRow?.querySelector("input")).toBeNull();
+    expect(disabledRow?.querySelector("button")).toBeNull();
   });
 });

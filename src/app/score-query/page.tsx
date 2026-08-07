@@ -10,6 +10,9 @@ type ScoreRecordDetail = {
   categoryPoints: number;
   overtimeHours: number | null;
   overtimePoints: number;
+  complianceRatingPoints: number;
+  threeSPerformancePoints: number;
+  sopPerformancePoints: number;
   subtotal: number;
 };
 
@@ -18,6 +21,9 @@ type PersonScoreSummary = {
   personName: string;
   categoryScore: number;
   overtimeScore: number;
+  complianceScore: number;
+  threeSScore: number;
+  sopScore: number;
   totalScore: number;
   records: ScoreRecordDetail[];
 };
@@ -88,6 +94,9 @@ export default function ScoreQueryPage() {
               <th>姓名</th>
               <th>出勤類別分</th>
               <th>加班分</th>
+              <th>配合度分</th>
+              <th>3S分</th>
+              <th>SOP分</th>
               <th>總分</th>
             </tr>
           </thead>
@@ -105,11 +114,14 @@ export default function ScoreQueryPage() {
                     <td>{r.personName}</td>
                     <td>{r.categoryScore}</td>
                     <td>{r.overtimeScore}</td>
+                    <td>{r.complianceScore}</td>
+                    <td>{r.threeSScore}</td>
+                    <td>{r.sopScore}</td>
                     <td>{r.totalScore}</td>
                   </tr>
                   {isExpanded && (
                     <tr>
-                      <td colSpan={5}>
+                      <td colSpan={8}>
                         <table>
                           <thead>
                             <tr>
@@ -118,6 +130,9 @@ export default function ScoreQueryPage() {
                               <th>類別分</th>
                               <th>加班時數</th>
                               <th>加班分</th>
+                              <th>配合度分</th>
+                              <th>3S分</th>
+                              <th>SOP分</th>
                               <th>小計</th>
                             </tr>
                           </thead>
@@ -129,12 +144,15 @@ export default function ScoreQueryPage() {
                                 <td>{rec.categoryPoints}</td>
                                 <td>{rec.overtimeHours ?? ""}</td>
                                 <td>{rec.overtimePoints}</td>
+                                <td>{rec.complianceRatingPoints}</td>
+                                <td>{rec.threeSPerformancePoints}</td>
+                                <td>{rec.sopPerformancePoints}</td>
                                 <td>{rec.subtotal}</td>
                               </tr>
                             ))}
                             {r.records.length === 0 && (
                               <tr>
-                                <td colSpan={6}>本月無出勤紀錄</td>
+                                <td colSpan={9}>本月無出勤紀錄</td>
                               </tr>
                             )}
                           </tbody>
@@ -147,7 +165,7 @@ export default function ScoreQueryPage() {
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5}>查無資料</td>
+                <td colSpan={8}>查無資料</td>
               </tr>
             )}
           </tbody>

@@ -57,7 +57,14 @@ async function seedOvertimeScoreRule(input: {
 // Builds an approved form for a date with the given employee/category/overtime assignments.
 async function seedApprovedForm(
   date: string,
-  assignments: { employeeId: string; categoryId: string; overtimeHours?: number }[]
+  assignments: {
+    employeeId: string;
+    categoryId: string;
+    overtimeHours?: number;
+    complianceRatingId?: string | null;
+    threeSPerformanceId?: string | null;
+    sopPerformanceId?: string | null;
+  }[]
 ) {
   const form = await createDailyForm(date, "班長甲");
   await saveFormRecords(
@@ -67,10 +74,33 @@ async function seedApprovedForm(
       employeeId: a.employeeId,
       categoryId: a.categoryId,
       overtimeHours: a.overtimeHours ?? null,
+      complianceRatingId: a.complianceRatingId ?? null,
+      threeSPerformanceId: a.threeSPerformanceId ?? null,
+      sopPerformanceId: a.sopPerformanceId ?? null,
     }))
   );
   await submitForm(form.id, "班長甲");
   return approveForm(form.id, "主管");
+}
+
+async function seedComplianceRating(code = "CROSS_POST", name = "跨崗位", sortOrder = 1) {
+  return prisma.complianceRating.create({ data: { code, name, sortOrder } });
+}
+
+async function seedComplianceRatingScoreRule(complianceRatingId: string, points: number) {
+  return prisma.complianceRatingScoreRule.create({
+    data: { complianceRatingId, points, updatedBy: "測試" },
+  });
+}
+
+async function seedThreeSPerformance(code = "ABNORMAL", name = "異常", sortOrder = 1) {
+  return prisma.threeSPerformance.create({ data: { code, name, sortOrder } });
+}
+
+async function seedThreeSPerformanceScoreRule(threeSPerformanceId: string, points: number) {
+  return prisma.threeSPerformanceScoreRule.create({
+    data: { threeSPerformanceId, points, updatedBy: "測試" },
+  });
 }
 
 describe("queryScoresByMonth — 月份格式驗證", () => {
@@ -380,5 +410,55 @@ describe("queryScoresByMonth — 人員清單聯集（AC-10 / AC-11 / AC-12）",
 
     const result = await queryScoresByMonth("2026-01");
     expect(result.map((r) => r.employeeId)).toEqual(["E002"]);
+  });
+});
+
+describe("queryScoresByMonth — 配合度／3S表現／SOP表現積分（docs/2026-08-06-score-rules-lookup-scoring AC-10）", () => {
+  it("sums compliance/3S points and counts an unfilled SOP field as 0, into totalScore", async () => {
+    await seedPerson("E001", "王小明");
+    const normal = await seedCategory("NORMAL", "正常出勤");
+    const compliance = await seedComplianceRating();
+    await seedComplianceRatingScoreRule(compliance.id, 10);
+    const threeS = await seedThreeSPerformance();
+    await seedThreeSPerformanceScoreRule(threeS.id, 5);
+
+    await seedApprovedForm("2026-01-05", [
+      {
+        employeeId: "E001",
+        categoryId: normal.id,
+        complianceRatingId: compliance.id,
+        threeSPerformanceId: threeS.id,
+        // sopPerformanceId 刻意不帶（未填寫）
+      },
+    ]);
+
+    const result = await queryScoresByMonth("2026-01");
+    expect(result[0].complianceScore).toBe(10);
+    expect(result[0].threeSScore).toBe(5);
+    expect(result[0].sopScore).toBe(0);
+    expect(result[0].totalScore).toBe(15);
+    expect(result[0].records[0]).toMatchObject({
+      complianceRatingPoints: 10,
+      threeSPerformancePoints: 5,
+      sopPerformancePoints: 0,
+      subtotal: 15,
+    });
+  });
+});
+
+describe("queryScoresByMonth — 未設定積分的項目計為 0 分（docs/2026-08-06-score-rules-lookup-scoring AC-11）", () => {
+  it("counts a 3S performance item with no score rule set as 0 points", async () => {
+    await seedPerson("E001", "王小明");
+    const normal = await seedCategory("NORMAL", "正常出勤");
+    const threeS = await seedThreeSPerformance("ABNORMAL", "異常");
+    // 刻意不呼叫 seedThreeSPerformanceScoreRule——項目存在但未設定積分。
+
+    await seedApprovedForm("2026-01-05", [
+      { employeeId: "E001", categoryId: normal.id, threeSPerformanceId: threeS.id },
+    ]);
+
+    const result = await queryScoresByMonth("2026-01");
+    expect(result[0].threeSScore).toBe(0);
+    expect(result[0].totalScore).toBe(0);
   });
 });

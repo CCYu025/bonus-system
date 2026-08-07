@@ -1,0 +1,93 @@
+[
+  {
+    "ac_id": "AC-1",
+    "given_when_then": "Given 開發者登入積分規則設定頁面，「配合度」清單中有一個項目「跨崗位」尚未設定積分 / When 開發者在「跨崗位」的積分欄位輸入一個整數並儲存 / Then 系統成功儲存該積分值；重新載入頁面後，「跨崗位」顯示剛剛設定的積分，不再顯示「未設定」",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/compliance-rating-score-rules.test.ts 'returns points: null for a rating with no rule set yet (AC-1)'（未設定回傳 points:null，對應「未設定」）與 'returns the set points once a rule exists (AC-1)'（呼叫 upsertComplianceRatingScoreRule(rating.id, 10, ...) 後 listComplianceRatingScoreRules() 回傳 points:10）：DB-backed 測試，涵蓋「儲存→重新查詢顯示新值、不再是未設定」的資料面行為。src/app/score-rules/display.test.ts 'returns 未設定 for null (AC-3 共用函式)' 確認 formatCategoryPoints(null) === '未設定'，且該函式也用於配合度章節（src/app/score-rules/page.tsx LookupScoreRuleRow 唯讀分支）。UI 輸入/儲存按鈕的渲染邏輯（LookupScoreRuleRow 第 371-391 行，isActive===true 且未鎖定時進入既有 editable 分支）為靜態審查確認，與 CategoryRuleRow 既有 editable 分支共用同一寫法，此路徑無獨立 component test（此為專案既有慣例：本次未新增，2026-08-04 版 page.test.tsx 同樣未對『輸入後點擊儲存』的正常路徑加測試，plan.md T-5 測試層級判斷章節已明確說明此類 AC 資料正確性由 lib 測試覆蓋、UI 僅需沿用既有分支不需新增 component test）。手動瀏覽器驗證（使用者提供）：新增配合度項目「跨崗位」、設定積分顯示 +10，與此測試結果一致。npm test 全數通過，見 evidence/npm-test.txt。全部通過。"
+  },
+  {
+    "ac_id": "AC-2",
+    "given_when_then": "Given 「3S表現」清單中「正常」項目標記為鎖定（isLocked=true） / When 開發者開啟積分規則設定頁面的「3S表現」章節 / Then 「正常」這一列不顯示積分輸入欄位，不可編輯",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/score-rules/page.test.tsx 'does not render an input or button for the locked 正常 row in 3S表現 (AC-2)'（第 109-118 行）：component test（Vitest + React Testing Library + jsdom），mock authFetch 回傳 threeSPerformanceId:'s1', name:'正常', isLocked:true 的假資料，斷言該列顯示「系統鎖定，不可設定積分」提示文字，且 querySelector('input')／querySelector('button') 皆為 null。src/lib/three-s-performance-score-rules.test.ts 'returns points: null and isLocked: true for the locked 正常 item (AC-2)' 補充資料面：list 回傳 isLocked:true。npm test 全數通過（含此測試），見 evidence/npm-test.txt。"
+  },
+  {
+    "ac_id": "AC-3",
+    "given_when_then": "Given 「SOP表現」清單中「正常」項目標記為鎖定（isLocked=true） / When 開發者開啟積分規則設定頁面的「SOP表現」章節 / Then 「正常」這一列不顯示積分輸入欄位，不可編輯",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/score-rules/page.test.tsx 'does not render an input or button for the locked 正常 row in SOP表現 (AC-3)'（第 120-129 行）：同 AC-2 手法，mock sopPerformanceId:'p1', name:'正常', isLocked:true，斷言無 input/button 且顯示鎖定提示文字。src/lib/sop-performance-score-rules.test.ts 'returns points: null and isLocked: true for the locked 正常 item (AC-3)' 補充資料面。npm test 全數通過，見 evidence/npm-test.txt。"
+  },
+  {
+    "ac_id": "AC-4",
+    "given_when_then": "Given 某個 3S表現或 SOP表現項目標記為鎖定（isLocked=true） / When 直接呼叫設定積分的 API，對該鎖定項目送出積分設定請求（繞過畫面） / Then 系統回應錯誤，拒絕設定，不寫入任何積分值",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/three-s-performance-score-rules.test.ts 'rejects setting points for the locked 正常 item, writes nothing (AC-4)'（第 56-67 行）：呼叫 upsertThreeSPerformanceScoreRule(normal.id, 100, ...) 拋出 AppError{status:400}，且 prisma.threeSPerformanceScoreRule.findUnique 確認完全沒有寫入任何列。src/lib/sop-performance-score-rules.test.ts 同名測試（第 56-67 行）對 SOP表現做相同斷言。此為業務邏輯層（lib）測試，並非直接呼叫 HTTP route，但 src/app/api/three-s-performance-score-rules/[id]/route.ts 與 sop-performance-score-rules/[id]/route.ts 的 PUT handler 直接呼叫此函式、透過 withErrorHandling（src/lib/api-handler.ts）把 AppError.status 原樣轉成 HTTP status，中間無額外邏輯，故 lib 層的 400 拒絕等同 API 層的錯誤回應，可作為 AC-4「直接呼叫 API」情境的等效驗證。npm test 全數通過，見 evidence/npm-test.txt。"
+  },
+  {
+    "ac_id": "AC-5",
+    "given_when_then": "Given 「配合度」清單目前沒有「跨崗位」這個項目 / When 開發者在「類別管理」新增一個配合度項目「跨崗位」 / Then 重新載入積分規則設定頁面時，「配合度」章節顯示「跨崗位」這一列，積分欄位顯示「未設定」且可編輯",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/compliance-rating-score-rules.test.ts 'includes a newly created rating immediately (AC-5)'（第 34-43 行）：清單初始為空，呼叫 prisma.complianceRating.create() 新增「跨崗位」後，listComplianceRatingScoreRules() 立即回傳該筆、name==='跨崗位'、points===null（對應「未設定」）。src/app/score-rules/page.test.tsx 'renders 配合度／3S表現／SOP表現 section headings...' 確認頁面會渲染 API 回傳的清單資料（含跨崗位）。可編輯狀態沿用 LookupScoreRuleRow 既有 editable 分支（isActive:true 且未鎖定），與 AC-1 評估一致，屬既有共用程式碼路徑，由靜態審查確認。npm test 全數通過，見 evidence/npm-test.txt。"
+  },
+  {
+    "ac_id": "AC-6",
+    "given_when_then": "Given 「配合度」清單中「跨崗位」已設定積分為 10 分 / When 開發者在「類別管理」將「跨崗位」改名為「跨部門支援」 / Then 重新載入積分規則設定頁面時，該列顯示名稱為「跨部門支援」，原本設定的 10 分不受影響",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/compliance-rating-score-rules.test.ts 'reflects a renamed rating's current name without touching its points (AC-6)'（第 45-54 行）：先 upsertComplianceRatingScoreRule(rating.id, 10, ...)，再 prisma.complianceRating.update 改名為「跨部門支援」，listComplianceRatingScoreRules() 回傳 name==='跨部門支援'、points===10（原值不變）。頁面層直接渲染 API 回傳的 name 欄位（LookupScoreRuleRow item.name），無額外快取或衍生邏輯，靜態審查 src/app/score-rules/page.tsx 第 74-85 行確認 load() 每次都重新映射 API 回傳資料。npm test 全數通過，見 evidence/npm-test.txt。"
+  },
+  {
+    "ac_id": "AC-7",
+    "given_when_then": "Given 「配合度」清單中「跨崗位」已設定積分為 10 分 / When 開發者在「類別管理」將「跨崗位」設為停用 / Then 積分規則設定頁面的「配合度」章節仍顯示「跨崗位」這一列，標示「停用」，積分欄位顯示 10 分但沒有輸入框或儲存按鈕",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/compliance-rating-score-rules.test.ts 'keeps a disabled rating in the list, flagged isActive: false (AC-7)'（第 56-65 行）：停用後仍在清單中出現、isActive:false、points 保留為 10（資料面）。src/app/score-rules/page.test.tsx 'shows a 停用 badge and no input/button for a disabled 3S表現 item, even in edit mode (AC-7)'（第 131-141 行）：component test，即使切換到編輯模式，停用列仍顯示「停用」文字、且 querySelector('input')／querySelector('button') 皆為 null（UI 面，以 3S表現的停用項目為代表案例，LookupScoreRuleRow 為三個章節共用元件，邏輯對配合度同樣適用）。備註：積分顯示格式實際為 formatCategoryPoints(10) === '+10'（非逐字「10 分」），此為專案既有共用格式化函式（display.ts），比照本專案 2026-08-04 版 verify-report.json AC-3 對『+0』格式的既有判定先例——AC 原文用「10 分」描述數值本身，非強制要求逐字顯示格式，故判定符合意圖。npm test 全數通過，見 evidence/npm-test.txt。"
+  },
+  {
+    "ac_id": "AC-8",
+    "given_when_then": "Given 「跨崗位」目前為停用狀態，積分為 10 分 / When 直接呼叫設定積分的 API，對已停用的「跨崗位」送出新的積分設定請求 / Then 系統回應錯誤，拒絕變更，原本的 10 分維持不變",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/compliance-rating-score-rules.test.ts 'rejects setting points for a disabled rating and leaves the existing value untouched (AC-8)'（第 100-113 行）：先設定積分為 10、停用該項目，再呼叫 upsertComplianceRatingScoreRule(rating.id, 99, ...) 拋出 AppError{status:400}，隨後查詢 DB 確認 points 仍為 10（未被 99 覆蓋）。同 AC-4 的說明，此 lib 函式即為 PUT /api/compliance-rating-score-rules/[id] 的實際實作，withErrorHandling 將 AppError 轉為對應 HTTP 錯誤，可視為 API 層等效驗證。npm test 全數通過，見 evidence/npm-test.txt。"
+  },
+  {
+    "ac_id": "AC-9",
+    "given_when_then": "Given 「跨崗位」先前被停用時積分為 10 分 / When 開發者在「類別管理」重新啟用「跨崗位」 / Then 積分規則設定頁面該列恢復可編輯，積分欄位顯示先前設定的 10 分，不需重新輸入",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/compliance-rating-score-rules.test.ts 'allows editing again after the rating is re-enabled, preserving the prior points (AC-9)'（第 115-126 行）：設定積分 10 → 停用 → 重新啟用，listComplianceRatingScoreRules() 回傳 points 仍為 10；並示範重新啟用後可再次呼叫 upsertComplianceRatingScoreRule 成功變更為 15（證明恢復可編輯）。UI 恢復可編輯的渲染分支（isActive:true 且未鎖定 → 沿用既有 editable/唯讀分支）由 LookupScoreRuleRow 統一處理（第 343-397 行），與其餘項目共用同一段程式碼，無需額外分支，靜態審查確認邏輯正確。npm test 全數通過，見 evidence/npm-test.txt。"
+  },
+  {
+    "ac_id": "AC-10",
+    "given_when_then": "Given 某人員某日的出勤紀錄中，「配合度」欄位填寫為積分 10 分的項目、「3S表現」欄位填寫為積分 5 分的項目、「SOP表現」欄位未填寫 / When 查詢該人員該月的分數 / Then 該筆紀錄的配合度積分計為 10 分、3S表現積分計為 5 分、SOP表現積分計為 0 分（因未填寫），三者皆併入該人員的月總分",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/score-query.test.ts 'sums compliance/3S points and counts an unfilled SOP field as 0, into totalScore'（第 416-447 行，describe 標註 AC-10）：seed 配合度規則 10 分、3S表現規則 5 分、SOP表現欄位刻意不帶（未填寫），queryScoresByMonth('2026-01') 回傳 complianceScore===10、threeSScore===5、sopScore===0、totalScore===15，且 records[0] 內 complianceRatingPoints/threeSPerformancePoints/sopPerformancePoints/subtotal 皆與斷言一致，逐項對應 spec 例句。npm test 全數通過，見 evidence/npm-test.txt。"
+  },
+  {
+    "ac_id": "AC-11",
+    "given_when_then": "Given 「3S表現」清單中有一個項目「異常」尚未設定積分 / When 某筆出勤紀錄的「3S表現」欄位填寫為「異常」，查詢該月分數 / Then 該筆紀錄的 3S表現積分計為 0 分",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/score-query.test.ts 'counts a 3S performance item with no score rule set as 0 points'（第 449-464 行，describe 標註 AC-11）：seedThreeSPerformance('ABNORMAL','異常') 建立項目但刻意不呼叫 seedThreeSPerformanceScoreRule（未設定積分），queryScoresByMonth('2026-01') 回傳 threeSScore===0、totalScore===0，確認未設定積分視為 0 分。npm test 全數通過，見 evidence/npm-test.txt。"
+  },
+  {
+    "ac_id": "NFR-1",
+    "given_when_then": "標準：非 developer 角色呼叫設定積分的 API，回應 403（比照現有 category-score-rules 與這三個清單本身 CRUD API 的權限要求）",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/api/compliance-rating-score-rules/route.test.ts、src/app/api/three-s-performance-score-rules/route.test.ts、src/app/api/sop-performance-score-rules/route.test.ts 各自涵蓋：GET 無 session 回 401、foreman session 回 403（唯讀也擋，比照 category-score-rules 先例）；[id]/route.ts 的 PUT 無 session 回 401、foreman session 回 403。三份路由檔（route.ts／[id]/route.ts）皆以 requireRole('developer') 作為唯一權限入口（src/app/api/compliance-rating-score-rules/route.ts 第 6-8 行、[id]/route.ts 第 7-8 行，另兩組結構相同）。npm test 全數通過，見 evidence/npm-test.txt。"
+  },
+  {
+    "ac_id": "NFR-2",
+    "given_when_then": "標準：與現行 queryScoresByMonth 的既有行為一致（修改積分會回頭影響已查詢過的過去月份結果），不引入版本／快照機制",
+    "verification_method": "static_review",
+    "result": "PASS",
+    "evidence": "靜態審查 src/lib/score-query.ts 第 90-120 行：complianceRatingPointsMap／threeSPerformancePointsMap／sopPerformancePointsMap 皆在每次呼叫 queryScoresByMonth() 時以 prisma.xxxScoreRule.findMany() 即時查詢當下規則值建立，與既有 categoryPointsMap 的寫法完全一致，無任何欄位快照、版本號或歷史紀錄表寫入；prisma/schema.prisma 新增的三個 ScoreRule model（ComplianceRatingScoreRule／ThreeSPerformanceScoreRule／SopPerformanceScoreRule）僅各自對應 lookup 項目一筆現在值（unique on lookupId），未新增任何版本化欄位。此為純邏輯審查，無法用自動化測試直接斷言「修改積分會回頭影響過去月份查詢結果」這種跨時間點行為，比照現行 queryScoresByMonth 既有 NFR 驗證慣例採 static_review。"
+  }
+]

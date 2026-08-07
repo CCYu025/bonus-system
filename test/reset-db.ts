@@ -10,8 +10,11 @@ export async function resetDb() {
   await prisma.categoryScoreRule.deleteMany();
   await prisma.overtimeScoreRule.deleteMany();
   await prisma.attendanceCategory.deleteMany();
+  await prisma.complianceRatingScoreRule.deleteMany();
   await prisma.complianceRating.deleteMany();
+  await prisma.threeSPerformanceScoreRule.deleteMany();
   await prisma.threeSPerformance.deleteMany();
+  await prisma.sopPerformanceScoreRule.deleteMany();
   await prisma.sopPerformance.deleteMany();
   await prisma.person.deleteMany();
   await prisma.user.deleteMany();

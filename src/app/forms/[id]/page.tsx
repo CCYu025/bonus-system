@@ -602,10 +602,6 @@ function FormDetailPageInner({
             作廢重審
           </button>
         )}
-
-        <button onClick={load} disabled={busy}>
-          重新整理
-        </button>
       </div>
 
       <h2>異動軌跡</h2>

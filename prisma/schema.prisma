@@ -89,6 +89,10 @@ model ComplianceRating {
   updatedAt DateTime @updatedAt
 
   records AttendanceRecord[]
+  // docs/2026-08-06-score-rules-lookup-scoring：反向關聯，不對應實際資料庫欄位
+  // （FK 實際存在於 compliance_rating_score_rule.complianceRatingId），比照
+  // AttendanceCategory.categoryScoreRule 的既有慣例。
+  complianceRatingScoreRule ComplianceRatingScoreRule?
 
   @@map("compliance_rating")
 }
@@ -108,6 +112,8 @@ model ThreeSPerformance {
   updatedAt DateTime @updatedAt
 
   records AttendanceRecord[]
+  // docs/2026-08-06-score-rules-lookup-scoring：反向關聯，比照 ComplianceRating。
+  threeSPerformanceScoreRule ThreeSPerformanceScoreRule?
 
   @@map("three_s_performance")
 }
@@ -126,6 +132,8 @@ model SopPerformance {
   updatedAt DateTime @updatedAt
 
   records AttendanceRecord[]
+  // docs/2026-08-06-score-rules-lookup-scoring：反向關聯，比照 ComplianceRating。
+  sopPerformanceScoreRule SopPerformanceScoreRule?
 
   @@map("sop_performance")
 }
@@ -145,6 +153,48 @@ model CategoryScoreRule {
   updatedAt  DateTime           @updatedAt
 
   @@map("category_score_rule")
+}
+
+// 配合度積分設定（docs/2026-08-06-score-rules-lookup-scoring）——結構比照
+// CategoryScoreRule：每個配合度項目最多一筆規則，未設定視為「未設定」而非
+// 0 分（AC-1）；停用項目仍保留規則列，不隨停用被刪除或清空（AC-7/AC-8）。
+model ComplianceRatingScoreRule {
+  id                 String           @id @default(cuid())
+  complianceRatingId String           @unique
+  complianceRating   ComplianceRating @relation(fields: [complianceRatingId], references: [id])
+  points             Int
+  updatedBy          String
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@map("compliance_rating_score_rule")
+}
+
+// 3S表現積分設定，結構同 ComplianceRatingScoreRule。「正常」（isLocked=true）
+// 不透過此表設定積分（AC-2/AC-4），由應用層在 upsert 前擋下。
+model ThreeSPerformanceScoreRule {
+  id                  String            @id @default(cuid())
+  threeSPerformanceId String            @unique
+  threeSPerformance   ThreeSPerformance @relation(fields: [threeSPerformanceId], references: [id])
+  points              Int
+  updatedBy           String
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@map("three_s_performance_score_rule")
+}
+
+// SOP表現積分設定，結構同 ThreeSPerformanceScoreRule（含相同的 isLocked 排除規則）。
+model SopPerformanceScoreRule {
+  id               String         @id @default(cuid())
+  sopPerformanceId String         @unique
+  sopPerformance   SopPerformance @relation(fields: [sopPerformanceId], references: [id])
+  points           Int
+  updatedBy        String
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@map("sop_performance_score_rule")
 }
 
 // 加班積分設定（平日/假日兩組互斥時數級距，見 spec FR-7 的固定 seed 值）。
