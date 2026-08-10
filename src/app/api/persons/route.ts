@@ -12,7 +12,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   return withErrorHandling(async () => {
-    await requireRole("developer");
+    await requireRole(["foreman", "developer"]);
     const body = await req.json();
     return createPerson(body.employeeId, body.name);
   });

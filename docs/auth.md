@@ -4,7 +4,7 @@ Read this before adding a new API route, page, or anything that touches who's lo
 
 ## Model
 
-Two roles only: `developer` (full access — approve/reject/void, person/category/account management, all queries) and `foreman` (open/edit today's draft or rejected form, submit). There is no field-level permission system, no MFA, no self-service password reset — see the feature's `spec.md` (`docs/2026-07-29-admin-login-permission/` in the sibling `spec-plan` repo) if you need the original rationale before changing scope.
+Two roles only: `developer` (full access — approve/reject/void, category/account management, all queries) and `foreman` (open/edit today's draft or rejected form, submit). Person management (`/api/persons` create, `/api/persons/[employeeId]` soft-delete, and the SFT-report import under `/api/persons/import/*`) is **not** developer-exclusive — both roles can perform it (`docs/2026-08-07-person-import-sft/spec.md` FR-7/FR-8). There is no field-level permission system, no MFA, no self-service password reset — see the feature's `spec.md` (`docs/2026-07-29-admin-login-permission/` in the sibling `spec-plan` repo) if you need the original rationale before changing scope.
 
 Session is a DB-backed opaque token (`Session.id`), not a JWT — stored in an httpOnly cookie named `sid`, 8h fixed TTL, no "remember me". Deactivating a `User` (`isActive = false`) or deleting their sessions takes effect immediately on their *next* request; there's no separate revocation list to maintain.
 
@@ -14,6 +14,7 @@ Every protected API route must call one of these at the top of its handler, befo
 
 - `await requireAuth()` — any logged-in, active user. Throws `AppError(401, ...)` otherwise.
 - `await requireRole("developer")` — logged in **and** that specific role. Throws `AppError(403, ...)` otherwise.
+- `await requireRole(["foreman", "developer"])` — logged in **and** the session's role is one of the listed roles (`role` accepts a single `UserRole` or a `UserRole[]`, added for the person-import feature — see `docs/2026-08-07-person-import-sft/plan.md` 技術決策記錄 #2).
 
 Both read the session via `next/headers` `cookies()` — no `req` parameter needed, since Route Handlers have request-scoped cookie access automatically. `AppError` is caught by `withErrorHandling` (`src/lib/api-handler.ts`) and turned into the right JSON status — you don't need your own try/catch.
 
