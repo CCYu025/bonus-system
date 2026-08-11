@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, use, useEffect, useState, useCallback } from "react";
+import { Suspense, use, useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-client";
@@ -55,6 +55,34 @@ type RecordItem = {
   complianceRating: { id: string; name: string } | null;
   threeSPerformance: { id: string; name: string } | null;
   sopPerformance: { id: string; name: string } | null;
+};
+
+// docs/2026-08-11-attendance-sft-production-import：五類分類結果，形狀對應
+// src/lib/attendance-import.ts 的 AttendanceImportClassification。
+type ImportCandidate = {
+  personId: string;
+  employeeId: string;
+  name: string;
+  matchedBy: "employeeId" | "name";
+};
+
+type ImportMatchedItem = { personId: string; employeeId: string; name: string; quantity: number };
+type ImportNeedsReviewItem = {
+  reportEmployeeId: string;
+  reportName: string;
+  quantity: number;
+  candidates: ImportCandidate[];
+};
+type ImportSkippedItem = { personId: string; employeeId: string; name: string };
+type ImportNoExcelDataItem = { personId: string; employeeId: string; name: string };
+type ImportUnmatchedItem = { reportEmployeeId: string; reportName: string; quantity: number };
+
+type ImportClassification = {
+  matched: ImportMatchedItem[];
+  needsReview: ImportNeedsReviewItem[];
+  skippedWrongCategory: ImportSkippedItem[];
+  noExcelData: ImportNoExcelDataItem[];
+  unmatchedInExcel: ImportUnmatchedItem[];
 };
 
 type AuditLogItem = {
@@ -142,6 +170,9 @@ function FormDetailPageInner({
   const [rejectReason, setRejectReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [importPreview, setImportPreview] = useState<ImportClassification | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     const res = await authFetch(`/api/forms/${id}`);
@@ -272,6 +303,53 @@ function FormDetailPageInner({
     } finally {
       setBusy(false);
     }
+  }
+
+  // AC-6/FR-9：畫面上每位人員「當下有效」的出勤類別（優先用尚未儲存的 edits，
+  // 沒有異動才 fallback 用表單已存的 categoryId），隨檔案一起送給匯入 API。
+  function buildEffectiveCategories(): Record<string, string | null> {
+    const result: Record<string, string | null> = {};
+    for (const r of form!.records) {
+      result[r.employeeId] = getFieldValue(r, "categoryId");
+    }
+    return result;
+  }
+
+  async function handleImportFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // AC-19：清空 value 讓使用者可以重新選同一個檔案再匯入一次
+    if (!file || !form) return;
+
+    setImportBusy(true);
+    setError(null);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      body.append("effectiveCategories", JSON.stringify(buildEffectiveCategories()));
+      const res = await authFetch(`/api/forms/${id}/import-sft`, { method: "POST", body });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "匯入失敗");
+      setImportPreview(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "匯入失敗");
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  // AC-8/AC-8a/AC-16：只把 matched 清單的數量寫進 edits state（沿用既有
+  // setField，不另外寫一套 state 更新邏輯），不呼叫任何存檔 API，資料庫維持不變。
+  function handleApplyImport() {
+    if (!importPreview || !form) return;
+    for (const item of importPreview.matched) {
+      const record = form.records.find((r) => r.employeeId === item.employeeId);
+      if (record) setField(record, "actualQuantity", item.quantity);
+    }
+    setImportPreview(null);
+  }
+
+  function handleCancelImport() {
+    setImportPreview(null);
   }
 
   async function handleAction(
@@ -569,6 +647,21 @@ function FormDetailPageInner({
       <div className="inline-form">
         {editable && (
           <>
+            {/* AC-1/AC-19：檔案選取上傳介面，不監看任何固定資料夾路徑。 */}
+            <input
+              type="file"
+              accept=".xls,.xlsx"
+              ref={importFileInputRef}
+              style={{ display: "none" }}
+              onChange={handleImportFileChange}
+            />
+            <button
+              type="button"
+              onClick={() => importFileInputRef.current?.click()}
+              disabled={busy || importBusy}
+            >
+              匯入SFT生產日報表
+            </button>
             <button onClick={handleSave} disabled={busy}>
               儲存草稿
             </button>
@@ -603,6 +696,82 @@ function FormDetailPageInner({
           </button>
         )}
       </div>
+
+      {importPreview && (
+        <div className="inline-form">
+          <h2>匯入SFT生產日報表 — 確認套用</h2>
+
+          <h3>將套用（{importPreview.matched.length} 人）</h3>
+          <ul>
+            {importPreview.matched.map((m) => {
+              const record = form.records.find((r) => r.employeeId === m.employeeId);
+              const currentValue = record ? getFieldValue(record, "actualQuantity") : null;
+              const willOverwrite = currentValue !== null;
+              // AC-14：將被覆蓋時同時顯示原值與新值；單一文字節點，方便測試斷言。
+              const text = willOverwrite
+                ? `${m.employeeId} ${m.name}：${m.quantity} 將被覆蓋（原值：${currentValue} → 新值：${m.quantity}）`
+                : `${m.employeeId} ${m.name}：${m.quantity}`;
+              return <li key={m.employeeId}>{text}</li>;
+            })}
+          </ul>
+
+          {importPreview.needsReview.length > 0 && (
+            <>
+              <h3>需人工確認（{importPreview.needsReview.length} 筆）</h3>
+              <ul>
+                {importPreview.needsReview.map((n, i) => {
+                  const candidateText = n.candidates.map((c) => `${c.name}（${c.employeeId}）`).join("、");
+                  return (
+                    <li key={i}>
+                      {`報表工號 ${n.reportEmployeeId}／姓名 ${n.reportName}／數量 ${n.quantity} 候選：${candidateText}`}
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+
+          {importPreview.skippedWrongCategory.length > 0 && (
+            <>
+              <h3>出勤類別不符，未匯入（{importPreview.skippedWrongCategory.length} 人）</h3>
+              <ul>
+                {importPreview.skippedWrongCategory.map((s) => (
+                  <li key={s.employeeId}>{`${s.employeeId} ${s.name}`}</li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {importPreview.noExcelData.length > 0 && (
+            <>
+              <h3>報表查無資料，維持原值（{importPreview.noExcelData.length} 人）</h3>
+              <ul>
+                {importPreview.noExcelData.map((n) => (
+                  <li key={n.employeeId}>{`${n.employeeId} ${n.name}`}</li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {importPreview.unmatchedInExcel.length > 0 && (
+            <>
+              <h3>報表資料查無對應人員（{importPreview.unmatchedInExcel.length} 筆）</h3>
+              <ul>
+                {importPreview.unmatchedInExcel.map((u, i) => (
+                  <li key={i}>{`${u.reportEmployeeId} ${u.reportName} 數量 ${u.quantity}`}</li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          <button type="button" onClick={handleApplyImport}>
+            確認套用
+          </button>
+          <button type="button" onClick={handleCancelImport}>
+            取消
+          </button>
+        </div>
+      )}
 
       <h2>異動軌跡</h2>
       <table>

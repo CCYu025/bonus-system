@@ -7,7 +7,10 @@ import { isFilledRecord } from "@/lib/attendance-records";
 // Statuses in which a form's records may still be edited (FR-7/AC-9, FR-5 reject flow).
 const EDITABLE_STATUSES = ["draft", "rejected"] as const;
 
-function assertEditable(status: string) {
+// exported so src/app/api/forms/[id]/import-sft/route.ts can share the exact
+// same "可編輯狀態" 判斷，而不是另外維護一份 draft/rejected 清單（見
+// docs/2026-08-11-attendance-sft-production-import/plan.md T-3）。
+export function assertEditable(status: string) {
   if (!EDITABLE_STATUSES.includes(status as (typeof EDITABLE_STATUSES)[number])) {
     throw new AppError(
       409,

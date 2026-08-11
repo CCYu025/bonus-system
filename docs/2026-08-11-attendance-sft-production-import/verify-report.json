@@ -1,0 +1,163 @@
+[
+  {
+    "ac_id": "AC-1",
+    "given_when_then": "Given 班長開啟狀態為 draft 或 rejected 的表單詳細頁 / When 頁面渲染完成 / Then 「匯入SFT生產日報表」按鈕顯示在「儲存草稿」按鈕左側，三個按鈕由左至右順序為：匯入SFT生產日報表／儲存草稿／確認送出待審",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/forms/[id]/page.test.tsx 測試 'renders the button to the left of 儲存草稿, and 儲存草稿 before 確認送出待審' 斷言 importIdx < saveIdx < submitIdx。npx vitest run 全數通過，見 evidence/vitest-run.txt（Test Files 3 passed, Tests 31 passed）。程式碼位置 src/app/forms/[id]/page.tsx 第 650-670 行，匯入按鈕在 editable 區塊內、儲存草稿按鈕之前。"
+  },
+  {
+    "ac_id": "AC-2",
+    "given_when_then": "Given 表單狀態為 pending_review、approved 或 voided / When 檢視表單詳細頁 / Then 不顯示「匯入SFT生產日報表」按鈕，或按鈕呈停用狀態，無法觸發匯入",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/forms/[id]/page.test.tsx 測試 'does not render the import button when the form is approved (AC-2)' 直接覆蓋 approved 狀態，斷言 queryByRole 找不到按鈕。程式碼審查確認按鈕包在同一個 `{editable && (...)}` 區塊（editable = status 為 draft/rejected），pending_review/voided 走同一段條件渲染邏輯，非個別分支，故三種非可編輯狀態行為一致。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "AC-3",
+    "given_when_then": "Given 上傳的 Excel 檔案內含多個生產日期的資料列 / When 對日期為 2026-08-07 的表單執行匯入 / Then 僅使用「生產日期」欄位等於 2026-08-07 的資料列參與後續比對與加總，其餘日期的資料列不列入計算",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-import.test.ts 測試 'filters by 生產日期 and sums 數量 per 員工代號 (AC-3/AC-5)' 混入 2026-08-09 資料列並斷言不列入加總；另有測試 'handles an Excel serial-number date cell equivalent to the target date (AC-3)' 覆蓋 Excel 序列值日期路徑。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "AC-4",
+    "given_when_then": "Given Excel 檔案表頭列前有標題列，且資料列中間夾雜一列內容與表頭相同的殘留重複表頭列 / When 系統解析該檔案 / Then 系統以內容定位真正的表頭列，並將該殘留重複表頭列排除，不當成一筆有效資料參與加總",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-import.test.ts 測試 'skips a repeated header row appearing later in the data (AC-4)'：aoaWithTitles 前綴兩列標題＋表頭列，資料中再夾一列與 HEADER 完全相同的殘留列，斷言加總結果只計入兩筆有效資料（10+5=15），殘留列未被計入。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "AC-5",
+    "given_when_then": "Given 過濾後的資料列中，同一員工代號存在多筆資料（不同工單/機台） / When 系統執行加總 / Then 該員工代號當天的加總結果，等於所有屬於該員工代號、且已通過生產日期過濾的資料列「數量」欄總和",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-import.test.ts 同一測試 'filters by 生產日期 and sums 數量 per 員工代號 (AC-3/AC-5)'：000051 兩筆同日資料 10+28=38 正確加總，第三筆不同日期不計入。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "AC-6",
+    "given_when_then": "Given 班長已在畫面上將某人員的出勤類別改為「正常出勤」，但尚未按下「儲存草稿」 / When 班長執行「匯入SFT生產日報表」 / Then 系統以畫面上當下（尚未儲存）的有效出勤類別判斷該人員是否為匯入對象，而非資料庫中已存的舊值",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "兩層測試：(1) src/app/forms/[id]/page.test.tsx 'sends the on-screen (unsaved) effective category, not the record's saved categoryId (AC-6)'：畫面把事假改成正常出勤但不儲存，斷言送給 API 的 effectiveCategories 反映新值；(2) src/app/api/forms/[id]/import-sft/route.test.ts 'uses the effectiveCategories override even when it disagrees with the record's saved categoryId'：DB 上是 NORMAL，request 覆蓋成事假，斷言分類結果採用覆蓋值（skippedWrongCategory）而非 DB 值，且 DB 本身未被寫入。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "AC-7",
+    "given_when_then": "Given 某人員目前有效出勤類別為「事假」（非正常出勤／假日加班） / When 執行匯入，且該人員的員工代號在報表中查有當天資料 / Then 該人員歸類為 skippedWrongCategory，不自動套用數量",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-import.test.ts 測試 'classifies a person whose effective category is not NORMAL/HOLIDAY_OVERTIME as skippedWrongCategory (AC-7)'，另有 route.test.ts AC-6 測試同時驗證 skippedWrongCategory 結果；page.test.tsx 'renders all five classification buckets' 驗證畫面呈現 '出勤類別不符，未匯入'。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "AC-8",
+    "given_when_then": "Given 報表中某筆資料的員工代號與姓名，皆與表單中某人員當下的工號與姓名相符，且該人員有效出勤類別為正常出勤或假日加班 / When 執行匯入 / Then 該人員歸類為 matched，其加總後的產量數字於使用者確認後寫入前端 edits state 的實際產量欄位",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-import.test.ts 測試 'classifies a full employeeId+name match as matched (AC-8)'；route.test.ts NFR-1/AC-15 測試同時驗證回傳 matched 內容正確；page.test.tsx 'does not call the save API when applying an import (AC-16)' 驗證點擊確認套用後數值 55 正確寫入輸入框（edits state）。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "AC-8a",
+    "given_when_then": "Given 某人員歸類為 matched，其加總後的「數量」結果為 0、或因報表資料本身包含非整數／負值而使加總結果不是正整數 / When 使用者於確認摘要畫面按下確認套用 / Then 系統照樣將該加總結果原值寫入前端 edits state 的實際產量欄位，不做四捨五入、排除、歸零或另行分類",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-import.test.ts 測試 'applies 0 and negative/non-integer sums as-is without special-casing (AC-8a)' 驗證分類層；src/app/forms/[id]/page.test.tsx 測試 'writes 0 and negative matched quantities into the actualQuantity input as-is (AC-8/AC-8a)' 驗證前端點擊確認套用後輸入框顯示原值 0，未做任何轉換。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "AC-9",
+    "given_when_then": "Given 報表某筆資料的員工代號與表單中某人員的工號相符，但姓名不同 / When 執行匯入 / Then 該筆歸類為 needsReview，不自動套用數量；確認摘要清單顯示報表原始工號／姓名／加總數量，以及對應到表單中的候選人員姓名",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-import.test.ts 測試 'classifies employeeId-match-but-name-mismatch as needsReview with one candidate (AC-9)' 驗證分類結果含 reportEmployeeId/reportName/quantity/candidates；page.test.tsx 'renders all five classification buckets' 驗證畫面文字 '報表工號 000700／姓名 王小美／數量 5 候選：王大美（000700）'。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "AC-10",
+    "given_when_then": "Given 報表某筆資料的姓名與表單中某人員的姓名相符，但工號不同 / When 執行匯入 / Then 該筆歸類為 needsReview，不自動套用數量，呈現方式與 AC-9 相同",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-import.test.ts 測試 'classifies name-match-but-employeeId-mismatch as needsReview with one candidate (AC-10)'，回傳結構與 AC-9 相同呈現方式已在 page.test.tsx 共用同一段渲染邏輯覆蓋。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "AC-11",
+    "given_when_then": "Given 報表某筆資料的員工代號對應表單中的人員 A，姓名卻對應表單中的人員 B，且 A 與 B 不是同一人 / When 執行匯入 / Then 該筆歸類為 needsReview，確認摘要同時列出候選人 A 與候選人 B，不自動套用數量",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-import.test.ts 測試 'classifies employeeId and name pointing to two different persons as needsReview with two candidates (AC-11)'，斷言 candidates 陣列同時含 matchedBy: employeeId 的人員 A 與 matchedBy: name 的人員 B。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "AC-12",
+    "given_when_then": "Given 某人員有效出勤類別為正常出勤或假日加班，但該表單日期的報表中查無此員工代號的任何資料列 / When 執行匯入 / Then 該人員歸類為 noExcelData，其「實際產量」欄位維持原值不變",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-import.test.ts 測試 'classifies a target-category person with no matching report row as noExcelData (AC-12)'；前端 handleApplyImport 只遍歷 importPreview.matched 寫入 edits，noExcelData 清單完全不影響任何欄位（程式碼審查 src/app/forms/[id]/page.tsx 第 328-336 行），page.test.tsx 驗證畫面顯示 '報表查無資料，維持原值'。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "AC-13",
+    "given_when_then": "Given 報表某筆資料的員工代號與姓名，皆與表單中任何人員都不相符 / When 執行匯入 / Then 該筆歸類為 unmatchedInExcel，於確認摘要中列出僅供告知，不影響表單任何欄位",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-import.test.ts 測試 'classifies a report row matching nobody as unmatchedInExcel (AC-13)'；page.test.tsx 驗證畫面顯示 '報表資料查無對應人員（1 筆）' 與 '000999 查無此人 數量 7'，且 unmatchedInExcel 不參與 handleApplyImport 的寫入邏輯。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "AC-14",
+    "given_when_then": "Given 某人員「實際產量」欄位已有非空值（不論是已存檔的值，或本次會話中已手動輸入尚未存檔的值），且該人員本次匯入結果為 matched / When 檢視匯入確認摘要 / Then 該筆標示為「將被覆蓋」，並同時顯示原值與即將套用的新值；使用者確認套用後才實際覆蓋前端 edits state 中的值",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/forms/[id]/page.test.tsx 測試 'renders all five classification buckets' 斷言既有值 20 的人員匯入後顯示 '000051 陳玉葉：38 將被覆蓋（原值：20 → 新值：38）'；另一測試 'does not show the 將被覆蓋 note for a matched person whose actualQuantity is currently empty' 驗證原值為空時不顯示覆蓋標示。前端邏輯用既有 getFieldValue 涵蓋已存檔與本次會話已輸入未存檔兩種來源（見 src/app/forms/[id]/page.tsx 第 707-717 行）。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "AC-15",
+    "given_when_then": "Given 匯入 API 已完成解析並回傳五類分類結果 / When 使用者尚未於確認摘要畫面按下確認套用 / Then 資料庫中此表單的任何欄位皆未被修改；匯入 API 全程未執行任何資料庫寫入操作",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/api/forms/[id]/import-sft/route.test.ts 測試 'does not modify the form or its records even for a matched row'：呼叫前後 prisma.attendanceRecord.findMany 結果完全相等（toEqual）。另以 grep 靜態審查 src/app/api/forms/[id]/import-sft/route.ts 與 src/lib/attendance-import.ts 全文，確認無任何 `prisma.*.create/update/delete/upsert` 呼叫（grep 無匹配）。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "AC-16",
+    "given_when_then": "Given 使用者已於確認摘要畫面按下確認套用，matched 清單的數量已寫入前端 edits state / When 使用者尚未按下「儲存草稿」或「確認送出待審」 / Then 資料庫中的表單資料維持不變，變更僅存在於前端未儲存狀態，直到既有的儲存/送審流程被觸發",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/forms/[id]/page.test.tsx 測試 'does not call the save API when applying an import (AC-16)'：點擊確認套用後斷言 authFetchMock 未被以 '/api/forms/form-1/records' 呼叫，摘要區塊關閉，但表格輸入框已顯示新值 55（僅存在於 edits state）。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "AC-17",
+    "given_when_then": "Given 表單狀態為 pending_review、approved 或 voided / When 使用者（或繞過前端）直接呼叫匯入 API / Then 系統拒絕該請求並回傳明確錯誤，不論前端按鈕是否已隱藏或停用",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/api/forms/[id]/import-sft/route.test.ts 測試 'rejects import when the form is pending_review' 與 'rejects import when the form is approved' 皆斷言回傳 409。voided 狀態未另外寫測試，但程式碼審查確認路由呼叫的是共用的 `assertEditable(form.status)`（src/lib/forms.ts 匯出函式，EDITABLE_STATUSES = [draft, rejected] 白名單判斷），與既有 saveFormRecords/submitForm 共用同一份邏輯，voided 走同一段拒絕路徑，非個別分支。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "AC-18",
+    "given_when_then": "Given 目前登入使用者的角色不具備編輯此表單記錄的權限 / When 呼叫匯入 API / Then 系統拒絕該請求，權限檢查結果與呼叫既有 PATCH /api/forms/:id/records 時一致",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/api/forms/[id]/import-sft/route.test.ts 'auth (AC-18)' 測試：無 session 回 401；foreman 角色成功（200）。經查 docs/auth.md 與 prisma schema，系統目前僅有 developer/foreman 兩種角色，且既有 PATCH /api/forms/[id]/records 只呼叫 requireAuth()、無角色限制，兩者皆可編輯，系統中不存在『登入但無編輯權限』的角色可供建構失敗案例（plan.md 技術決策記錄第 6 項已載明此點，非本次遺漏）。程式碼審查確認 import-sft route.ts 第 18 行與 records route 呼叫方式一致（僅 requireAuth，無 requireRole），故『權限檢查結果與既有 API 一致』以程式碼比對＋401 測試共同驗證。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "AC-19",
+    "given_when_then": "Given 使用者點擊「匯入SFT生產日報表」按鈕 / When 系統呈現匯入操作介面 / Then 呈現的是檔案選擇上傳介面（如檔案選取對話框），系統不會自動讀取或監看任何本機／雲端固定資料夾路徑",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/forms/[id]/page.test.tsx 測試 'presents a native file input and never auto-triggers an import request (AC-19)'：斷言存在 type=file 的 input，且掛載時未觸發任何匯入請求。另以 grep 靜態審查 src/app/forms/[id]/page.tsx、src/lib/attendance-import.ts、import-sft/route.ts 全文，無 setInterval/fs./readdir/watch( 等自動監看邏輯（grep 無匹配）。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "NFR-1",
+    "given_when_then": "匯入 API（解析／過濾／比對／分類）不得對資料庫執行任何寫入操作 — 標準：程式碼審查／測試可驗證該路由的實作中不存在任何 Prisma create/update/delete/upsert 呼叫",
+    "verification_method": "static_review",
+    "result": "PASS",
+    "evidence": "grep -n \"prisma\\.\\(.*\\)\\.\\(create|update|delete|upsert\\)\" src/app/api/forms/[id]/import-sft/route.ts src/lib/attendance-import.ts 無匹配（exit code 1）。搭配 route.test.ts 的 'does not modify the form or its records' 測試以資料庫層面驗證呼叫前後資料完全相等，雙重確認。"
+  },
+  {
+    "ac_id": "NFR-2",
+    "given_when_then": "檔案格式無法解析（找不到表頭列、檔案損毀等）時，須回傳明確的繁體中文錯誤訊息，風格與既有 parseSftReport（AppError(400, \"檔案格式無法解析\")）一致 — 標準：對應錯誤情境有測試覆蓋",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/attendance-import.test.ts 測試 'throws AppError(400) when the header row cannot be found (NFR-2)' 與 'throws AppError(400) when the sheet only has 員工代號/姓名 without 生產日期/數量 (NFR-2)'，皆斷言拋出 status 400 的 AppError；程式碼 src/lib/attendance-import.ts 第 42/46/57 行訊息皆為 \"檔案格式無法解析\"，與既有 parseSftReport 風格一致。見 evidence/vitest-run.txt。"
+  },
+  {
+    "ac_id": "NFR-3",
+    "given_when_then": "後端須驗證前端傳入的「有效出勤類別」僅適用於此表單當前的人員名單（不可讓請求內容指定表單以外的人員或不存在的 categoryId）— 標準：對非法輸入有測試覆蓋並回傳明確錯誤，不因此造成分類結果錯誤或例外未處理",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/api/forms/[id]/import-sft/route.test.ts 測試 'rejects effectiveCategories containing an employeeId outside this form's roster' 與 'rejects effectiveCategories containing a categoryId that doesn't exist' 皆斷言回傳 400，且未進入分類流程（路由第 54-61 行於分類前先做完整驗證並提前 throw AppError）。見 evidence/vitest-run.txt。"
+  }
+]
