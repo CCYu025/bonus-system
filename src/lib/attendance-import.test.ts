@@ -22,20 +22,21 @@ function aoaWithTitles(rows: unknown[][]): unknown[][] {
 }
 
 describe("parseAttendanceSftReport", () => {
-  it("filters by 生產日期 and sums 數量 per 員工代號 (AC-3/AC-5)", () => {
+  it("sums 數量 per 員工代號 across the whole file, ignoring 生產日期 (AC-3/AC-5, AMENDED 2026-08-11)", () => {
+    // 夜班跨日：同一人的資料橫跨兩個生產日期，兩筆都要計入加總，不因日期不同被排除。
     const buffer = buildSftBuffer(
       aoaWithTitles([
         ["2026-08-10", 1, "000051", "陳玉葉", 10],
         ["2026-08-10", 2, "000051", "陳玉葉", 28],
-        ["2026-08-09", 3, "000051", "陳玉葉", 999], // 不同日期，不列入
+        ["2026-08-11", 3, "000051", "陳玉葉", 999], // 跨日資料，仍要計入
         ["2026-08-10", 4, "000696", "呂志成", 5],
       ])
     );
 
-    const result = parseAttendanceSftReport(buffer, "2026-08-10");
+    const result = parseAttendanceSftReport(buffer);
     expect(result).toEqual(
       expect.arrayContaining([
-        { employeeId: "000051", name: "陳玉葉", quantity: 38 },
+        { employeeId: "000051", name: "陳玉葉", quantity: 1037 },
         { employeeId: "000696", name: "呂志成", quantity: 5 },
       ])
     );
@@ -51,39 +52,39 @@ describe("parseAttendanceSftReport", () => {
       ])
     );
 
-    const result = parseAttendanceSftReport(buffer, "2026-08-10");
+    const result = parseAttendanceSftReport(buffer);
     expect(result).toEqual([{ employeeId: "000051", name: "陳玉葉", quantity: 15 }]);
   });
 
-  it("handles an Excel serial-number date cell equivalent to the target date (AC-3)", () => {
-    // 46244 對應 2026-08-10（與 xlsx 樣本檔實測結果一致）。
-    const buffer = buildSftBuffer(aoaWithTitles([[46244, 1, "000051", "陳玉葉", 10]]));
-    const result = parseAttendanceSftReport(buffer, "2026-08-10");
+  it("does not require a 生產日期 column to locate the header (AC-4, AMENDED 2026-08-11)", () => {
+    const aoa = [
+      ["", "", "", "", "毅豐橡膠"],
+      ["員工代號", "姓名", "數量"],
+      ["000051", "陳玉葉", 10],
+    ];
+    const buffer = buildSftBuffer(aoa);
+    const result = parseAttendanceSftReport(buffer);
     expect(result).toEqual([{ employeeId: "000051", name: "陳玉葉", quantity: 10 }]);
   });
 
   it("throws AppError(400) when the header row cannot be found (NFR-2)", () => {
     const buffer = buildSftBuffer([["not", "the", "right", "columns"]]);
-    expect(() => parseAttendanceSftReport(buffer, "2026-08-10")).toThrow(
-      expect.objectContaining({ status: 400 })
-    );
+    expect(() => parseAttendanceSftReport(buffer)).toThrow(expect.objectContaining({ status: 400 }));
   });
 
-  it("throws AppError(400) when the sheet only has 員工代號/姓名 without 生產日期/數量 (NFR-2)", () => {
-    // 比照既有 persons-import 的表頭格式，本功能要求更嚴格的四欄同時存在。
+  it("throws AppError(400) when the sheet only has 員工代號/姓名 without 數量 (NFR-2)", () => {
+    // 比照既有 persons-import 的表頭格式，本功能要求多一欄「數量」才視為表頭。
     const buffer = buildSftBuffer([
       ["", "", "", "", ""],
       ["生產日期", "項次", "員工代號", "姓名", "報工單號"],
       ["2026-08-10", 1, "000051", "陳玉葉", "D000-0001"],
     ]);
-    expect(() => parseAttendanceSftReport(buffer, "2026-08-10")).toThrow(
-      expect.objectContaining({ status: 400 })
-    );
+    expect(() => parseAttendanceSftReport(buffer)).toThrow(expect.objectContaining({ status: 400 }));
   });
 
   it("returns 0 quantity for a non-numeric 數量 cell instead of throwing", () => {
     const buffer = buildSftBuffer(aoaWithTitles([["2026-08-10", 1, "000051", "陳玉葉", "N/A"]]));
-    const result = parseAttendanceSftReport(buffer, "2026-08-10");
+    const result = parseAttendanceSftReport(buffer);
     expect(result).toEqual([{ employeeId: "000051", name: "陳玉葉", quantity: 0 }]);
   });
 });

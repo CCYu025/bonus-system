@@ -1,8 +1,4 @@
 
-> bonus-system@0.1.0 test
-> vitest run
-
-
  RUN  v4.1.10 C:/Users/tomof/OneDrive/桌面/Yu/WorkSpace/bonus-system
 
 applying: 20260729000000_init
@@ -13,8 +9,8 @@ applying: 20260804000000_add_score_rule_tables
 applying: 20260806000000_add_lookup_score_rule_tables
 done.
 
- Test Files  40 passed (40)
-      Tests  316 passed (316)
-   Start at  16:46:05
-   Duration  63.50s (transform 2.30s, setup 349ms, import 9.79s, tests 31.96s, environment 8.87s)
+ Test Files  3 passed (3)
+      Tests  31 passed (31)
+   Start at  16:45:48
+   Duration  6.26s (transform 525ms, setup 58ms, import 1.27s, tests 2.21s, environment 1.47s)
 

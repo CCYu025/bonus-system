@@ -2,6 +2,8 @@
 
 來源：`docs/2026-08-11-attendance-sft-production-import/spec.md`（已確認，2026-08-11）
 
+> **修訂記錄（2026-08-11）**：spec.md 的 AC-3／AC-4／AC-5／AC-12 已修訂為「不依生產日期過濾，僅依員工代號＋姓名比對整份檔案」（原因：夜班跨日，見 spec.md 修訂記錄）。以下 T-1 任務內容（含 AC 摘要）保留原始規劃版本供追溯，**與目前程式碼行為不符**——`parseAttendanceSftReport` 已移除 `targetDate` 參數與所有日期比對邏輯，實際實作與測試以 `src/lib/attendance-import.ts`／`src/lib/attendance-import.test.ts` 現況與 spec.md 最新版本為準。
+
 ## Traceability Table（AC → Task 對照）
 
 | AC ID | AC 標題 | Task ID(s) |

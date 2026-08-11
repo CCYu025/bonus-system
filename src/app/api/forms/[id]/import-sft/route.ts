@@ -77,7 +77,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const reportRows = parseAttendanceSftReport(buffer, form.date);
+    // AC-3（AMENDED 2026-08-11）：不依 form.date 過濾，見 attendance-import.ts 開頭註解。
+    const reportRows = parseAttendanceSftReport(buffer);
     return classifyAttendanceImportRows(reportRows, formPersons);
   });
 }

@@ -3,38 +3,25 @@ import { AppError } from "@/lib/errors";
 
 // T-1 / FR-3~FR-5: 出勤表單匯入 SFT 生產日報表的解析層。刻意獨立於
 // src/lib/persons-import.ts 的 parseSftReport（只解析員工代號/姓名兩欄、
-// 以最後一筆為準去重），因為這裡要多解析「生產日期」「數量」兩欄，且聚合語意
+// 以最後一筆為準去重），因為這裡要多解析「數量」欄，且聚合語意
 // 是「加總」而非「取最後一筆」，見 docs/2026-08-11-attendance-sft-production-import/plan.md
 // 技術決策記錄第 1 項。
+//
+// AC-3（AMENDED 2026-08-11）：不依「生產日期」欄位過濾——夜班存在跨日情況，
+// SFT 系統記錄的生產日期不可靠地對應到出勤表單所屬日期（例如晚班報工時間落在
+// 隔天凌晨，生產日期會被記成隔天），依生產日期過濾會把實際屬於當天班次的產量
+// 誤判為查無資料而排除。故加總範圍是整份上傳檔案，不解析、不使用生產日期欄位。
 export type AttendanceImportRow = {
   employeeId: string;
   name: string;
   quantity: number;
 };
 
-function formatDateCell(cell: unknown): string {
-  if (cell instanceof Date) {
-    const y = cell.getFullYear();
-    const m = String(cell.getMonth() + 1).padStart(2, "0");
-    const d = String(cell.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  }
-  if (typeof cell === "number") {
-    const parsed = XLSX.SSF.parse_date_code(cell);
-    if (!parsed) return "";
-    const y = String(parsed.y).padStart(4, "0");
-    const m = String(parsed.m).padStart(2, "0");
-    const d = String(parsed.d).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  }
-  return String(cell ?? "").trim();
-}
-
-// AC-3/AC-4/AC-5/NFR-2: 以內容定位表頭列（同時要求「員工代號」「姓名」
-// 「生產日期」「數量」四個欄名都在同一列才視為表頭，比既有 parseSftReport 更嚴格，
-// 避免把只含員工代號/姓名兩欄的其他報表誤判為本功能的表頭），跳過殘留重複表頭列，
-// 依 targetDate 過濾生產日期，並依員工代號加總數量欄。
-export function parseAttendanceSftReport(buffer: Buffer, targetDate: string): AttendanceImportRow[] {
+// AC-4/NFR-2: 以內容定位表頭列（要求「員工代號」「姓名」「數量」三個欄名都在
+// 同一列才視為表頭，比既有 parseSftReport 多要求「數量」，避免把只含員工代號/
+// 姓名兩欄的人員主檔匯入報表誤判為本功能的表頭），跳過殘留重複表頭列，並依
+// 員工代號加總整份檔案的數量欄（AC-3/AC-5，不依生產日期篩選）。
+export function parseAttendanceSftReport(buffer: Buffer): AttendanceImportRow[] {
   let workbook: XLSX.WorkBook;
   try {
     workbook = XLSX.read(buffer, { type: "buffer" });
@@ -51,13 +38,11 @@ export function parseAttendanceSftReport(buffer: Buffer, targetDate: string): At
       Array.isArray(row) &&
       row.includes("員工代號") &&
       row.includes("姓名") &&
-      row.includes("生產日期") &&
       row.includes("數量")
   );
   if (headerRowIndex === -1) throw new AppError(400, "檔案格式無法解析");
 
   const header = rows[headerRowIndex] as unknown[];
-  const idxDate = header.indexOf("生產日期");
   const idxCode = header.indexOf("員工代號");
   const idxName = header.indexOf("姓名");
   const idxQty = header.indexOf("數量");
@@ -72,9 +57,6 @@ export function parseAttendanceSftReport(buffer: Buffer, targetDate: string): At
     const name = String(row[idxName] ?? "").trim();
     if (!employeeId || !name) continue;
     if (employeeId === "員工代號" && name === "姓名") continue; // 殘留重複表頭列
-
-    const rowDate = formatDateCell(row[idxDate]);
-    if (rowDate !== targetDate) continue;
 
     const qty = Number(row[idxQty]);
     const quantity = Number.isFinite(qty) ? qty : 0;
