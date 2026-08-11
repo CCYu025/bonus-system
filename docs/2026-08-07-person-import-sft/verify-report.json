@@ -1,0 +1,114 @@
+[
+  {
+    "ac_id": "AC-1",
+    "given_when_then": "Given 使用者在人員主檔管理頁面 / When 頁面載入完成 / Then 畫面顯示「匯入 SFT 報表」檔案選擇入口，位於既有新增人員表單下方、人員列表上方",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/persons/page.test.tsx::PersonsPage > renders the import entry between the create-person form and the person list — 以 compareDocumentPosition 斷言 DOM 順序：新增人員按鈕 < 匯入輸入框 < 人員列表 table，皆為 FOLLOWING。獨立重跑 `npx vitest run`：37 檔案 285 測試全過（見 evidence/vitest-full-run.txt）。另以原始碼比對 src/app/persons/page.tsx 第 183-192 行（新增人員表單）與第 193-201 行（匯入入口）與第 263 行起（人員列表 table）之 JSX 順序，位置與 AC 描述一致。"
+  },
+  {
+    "ac_id": "AC-2",
+    "given_when_then": "Given SFT 報表中某筆資料的姓名與某位在職人員相符，但員工代號不同 / When 使用者上傳該報表 / Then 預覽清單出現一筆標示「取代」的項次，顯示該人員現有的員工代號與匯入的員工代號",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/persons-import.test.ts::classifyImportRows > classifies as 'replace' when name matches but employeeId differs (AC-2) — 斷言回傳 {kind:'replace', matchedBy:'name', currentEmployeeId:'00013', importEmployeeId:'E100', ...}（合成 fixture，非真實員工資料）。另有 route 層測試 src/app/api/persons/import/preview/route.test.ts 與元件測試 src/app/persons/page.test.tsx 覆蓋同一情境的欄位渲染。額外以真實 SFT 檔案（SFTR19_Excel20260807111814779.xls）呼叫 dev server POST /api/persons/import/preview 端對端覆核：回傳 16 筆 matchedBy:'name' 的 replace 項次，其中確實包含「姓名相符、代號不符」的真實案例，去識別化後的對照見 evidence/real-sft-preview-response.json（真實姓名／代號已於驗收後移除，改以 測試員NN／SNNNNN 佔位符呈現，僅保留比對關係與筆數供覆核）。獨立重跑 vitest 全數通過。"
+  },
+  {
+    "ac_id": "AC-3",
+    "given_when_then": "Given SFT 報表中某筆資料的員工代號與某位在職人員相符，但姓名不同 / When 使用者上傳該報表 / Then 預覽清單出現一筆標示「取代」的項次，顯示該人員現有的姓名與匯入的姓名",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/persons-import.test.ts::classifyImportRows > classifies as 'replace' when employeeId matches but name differs (AC-3) — 斷言回傳 {kind:'replace', matchedBy:'employeeId', currentName:'王小美', importName:'王小美(改名)', ...}（合成 fixture）。真實檔案端對端呼叫本次未出現 matchedBy:'employeeId' 案例（真實資料裡都是代號變更、姓名不變，符合 AC-2 情境），此分支的驗證依賴 persons-import.test.ts 的合成 fixture，屬正常情況（真實樣本不保證涵蓋所有分支）。獨立重跑 vitest 全數通過（見 evidence/vitest-full-run.txt）。"
+  },
+  {
+    "ac_id": "AC-4",
+    "given_when_then": "Given SFT 報表中某筆資料的員工代號與姓名皆與某位在職人員相符 / When 使用者上傳該報表 / Then 該筆資料不出現在預覽清單中",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/persons-import.test.ts::classifyImportRows > excludes a row from the result when both employeeId and name already match (AC-4) — 斷言 classifyImportRows 回傳空陣列。真實檔案端對端呼叫亦間接佐證：報表解析後去重得 21 位不同員工，preview 回傳僅 20 筆（16 取代 + 4 新增），差額 1 筆即為代號與姓名皆相符、被排除的案例，見 evidence/real-sft-preview-response.json（20 筆）與 evidence/real-sft-persons-before.json（18 位在職人員，其中 2 位未出現在 20 筆預覽中，1 位為完全相符被排除，1 位未在本次報表出現）。"
+  },
+  {
+    "ac_id": "AC-5",
+    "given_when_then": "Given SFT 報表中某筆資料的員工代號與姓名皆不符合任何在職人員 / When 使用者上傳該報表 / Then 預覽清單出現一筆標示「新增」的項次，顯示匯入的員工代號與姓名",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/persons-import.test.ts::classifyImportRows > classifies as 'create' when neither employeeId nor name match any active person (AC-5) — 斷言回傳 [{kind:'create', importEmployeeId:'E300', importName:'張小強'}]（合成 fixture）。真實檔案端對端覆核：preview 回傳恰好 4 筆 kind:'create'，與使用者提供的人工分析（4 新增）完全吻合，去識別化後的內容見 evidence/real-sft-preview-response.json（真實姓名／代號已移除，僅保留筆數與分類結果供覆核）。獨立重跑 vitest 全數通過。"
+  },
+  {
+    "ac_id": "AC-6",
+    "given_when_then": "Given 某位離職人員的員工代號或姓名恰與 SFT 報表中某筆資料相符 / When 使用者上傳該報表 / Then 該筆資料的比對結果視為與在職人員皆不相符，依 AC-5 或 AC-7 規則判定，不會被當成該離職人員的「取代」項次",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/persons-import.test.ts::classifyImportRows > ignores terminated persons entirely when matching (AC-6) — 建立一位姓名相同、代號不同的離職人員，斷言匯入資料被判定為 kind:'create' 而非 'replace'，證明離職人員不被當成取代比對對象。程式碼面確認 src/lib/persons-import.ts 第 88-96 行 classifyImportRows 只用 activePersons（status:'active'）建立 activeByEmployeeId/activeByName 比對表，離職人員（terminatedPersons）只用於後續 AC-7 的代號衝突檢查，結構上不會誤判為取代。真實資料端對端呼叫時目前資料庫內 0 筆離職人員（見 evidence/real-sft-persons-before.json），此分支無法用真實檔案覆核，改以此合成測試作為主要驗證依據，不影響 PASS 判定。"
+  },
+  {
+    "ac_id": "AC-7",
+    "given_when_then": "Given SFT 報表中某筆資料依 AC-5 規則會被判定為「新增」，但其員工代號恰與某位離職人員現有的員工代號相同 / When 使用者上傳該報表 / Then 預覽清單出現一筆標示「無法匯入」的項次，附上衝突原因（占用者姓名），該項次的勾選框為停用狀態",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/persons-import.test.ts::classifyImportRows > flags as 'blocked' when a create-candidate's employeeId collides with a terminated person (AC-7) — 斷言回傳 {kind:'blocked', reason:'工號 E100 已被離職人員「舊員工」占用'}（合成 fixture）。前端渲染與 disabled 勾選框由 src/app/persons/page.test.tsx > renders 取代/新增/無法匯入 rows 與 > starts every checkable row unchecked, and disables the 無法匯入 row's checkbox 兩則測試覆蓋（checkboxes[2].disabled === true）。真實資料庫目前無離職人員，本次端對端呼叫未產生 blocked 項次（0 筆），此分支主要驗證依據為上述合成 fixture 測試，非缺陷。"
+  },
+  {
+    "ac_id": "AC-8",
+    "given_when_then": "Given 預覽清單已產生，包含可勾選的項次 / When 使用者檢視清單 / Then 每一筆可勾選的項次（取代、新增）預設皆為「未勾選」狀態",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/persons/page.test.tsx::PersonsPage > starts every checkable row unchecked, and disables the 無法匯入 row's checkbox — 上傳含 replace/create/blocked 三種項次的 mock 預覽，斷言 checkboxes[0].checked === false 且 checkboxes[1].checked === false（取代、新增兩項），checkboxes[2].disabled === true（無法匯入項）。程式碼面確認 src/app/persons/page.tsx 第 105 行 `.map((item) => ({ ...item, checked: false }))` 每筆初始 checked 皆為 false。RTL jsdom component test 屬本 AC 的正確驗證層級（純狀態渲染斷言，非真實排版），符合 plan.md「測試層級判斷」規劃。"
+  },
+  {
+    "ac_id": "AC-9",
+    "given_when_then": "Given 預覽清單中使用者已勾選部分項次、部分項次未勾選 / When 使用者點擊「確認套用」 / Then 系統只對已勾選項次執行對應動作，未勾選項次不產生任何資料異動",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "三層覆蓋：(1) src/lib/persons-import.test.ts::applyImportSelections > applies only the passed-in selections, nothing else (AC-9) — 斷言未傳入的既有人員資料不受影響、person count 正確；(2) src/app/api/persons/import/apply/route.test.ts::/api/persons/import/apply AC-9 > only applies the selections included in the request body — 路由層確認只處理 request body 內的 selections；(3) src/app/persons/page.test.tsx::PersonsPage > only sends the checked rows when 確認套用 is clicked — 只勾選 create 項次後點擊確認套用，斷言送出的 request body selections 僅含該筆。獨立重跑 vitest 全數通過。"
+  },
+  {
+    "ac_id": "AC-10",
+    "given_when_then": "Given 一筆「取代」項次因姓名相符、代號不符而產生，使用者已勾選 / When 使用者點擊「確認套用」 / Then 該筆現有人員的員工代號被更新為匯入值，姓名維持不變；該人員既有的出勤紀錄（AttendanceRecord）不受影響、仍可正常查詢",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/persons-import.test.ts::applyImportSelections > updates only the employeeId when matchedBy is 'name' (AC-10, FR-4) — 斷言更新後 employeeId 變為匯入值、name 不變；> leaves AttendanceRecord history untouched when replacing an employeeId (AC-10) — 建立一筆帶 AttendanceRecord 的 Person，執行 replace 後以 personId 重新查詢該筆 AttendanceRecord，斷言 personId 未變、紀錄仍可查得。技術基礎見 plan.md 技術決策記錄第 7 項：AttendanceRecord.personId 指向 surrogate key 而非 employeeId（prisma/schema.prisma 第 260-263 行既有設計），程式碼未對 AttendanceRecord 做任何操作，符合預期。"
+  },
+  {
+    "ac_id": "AC-11",
+    "given_when_then": "Given 預覽清單已產生，使用者可能已勾選部分項次 / When 使用者點擊「取消」 / Then 預覽區塊關閉，資料庫沒有任何新增或更新，人員列表維持匯入前的狀態",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/persons/page.test.tsx::PersonsPage > closes the preview and calls no API when 取消 is clicked — 斷言點擊取消後「匯入預覽」標題消失，且 applyCalls（mock 的 apply API 呼叫紀錄）長度為 0，確認未呼叫任何寫入 API。程式碼面 src/app/persons/page.tsx 第 156-159 行 handleCancelImport 僅 setPreview(null)，未呼叫 authFetch。輔以 src/lib/persons-import.test.ts::applyImportSelections > does nothing and does not throw when given an empty selection list（AC-11 support）確認底層邏輯對空陣列安全。"
+  },
+  {
+    "ac_id": "AC-12",
+    "given_when_then": "Given 使用者以班長（foreman）角色登入 / When 該使用者在預覽畫面點擊「確認套用」 / Then 操作成功執行，不回傳權限錯誤",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/api/persons/import/apply/route.test.ts::/api/persons/import/apply POST auth > succeeds for a foreman session (FR-8) — 以 foreman session 呼叫 POST /api/persons/import/apply，斷言 res.status === 200（非 403）。requireRole(['foreman','developer']) 落地確認見 src/app/api/persons/import/apply/route.ts 第 11 行；底層 requireRole 陣列角色行為另由 src/lib/auth.test.ts::requireRole > accepts an array of roles when the session role is included 覆蓋。"
+  },
+  {
+    "ac_id": "AC-13",
+    "given_when_then": "Given 使用者以班長（foreman）角色登入 / When 該使用者透過既有「新增人員」表單送出 / Then 操作成功執行，不回傳權限錯誤",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/api/persons/route.test.ts::/api/persons POST auth > succeeds for a foreman session — 以 foreman session 呼叫 POST /api/persons，斷言 res.status === 200；同檔案 > still succeeds for a developer session (no regression) 確認既有 developer 行為未回歸。src/app/api/persons/route.ts 第 15 行確認已改為 requireRole(['foreman','developer'])。"
+  },
+  {
+    "ac_id": "AC-14",
+    "given_when_then": "Given 使用者以班長（foreman）角色登入 / When 該使用者點擊某位在職人員的「設為離職」 / Then 操作成功執行，不回傳權限錯誤",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/app/api/persons/[employeeId]/route.test.ts::/api/persons/[employeeId] DELETE auth > succeeds for a foreman session — 以 foreman session 呼叫 DELETE /api/persons/E001，斷言 res.status === 200。src/app/api/persons/[employeeId]/route.ts 第 10 行確認已改為 requireRole(['foreman','developer'])。"
+  },
+  {
+    "ac_id": "NFR-1",
+    "given_when_then": "標準：從上傳檔案到產生預覽清單的過程中，呼叫的函式或 API 不得包含任何 prisma.person.create 或 prisma.person.update 呼叫，只有「確認套用」之後才允許寫入",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "(1) src/lib/persons-import.test.ts::classifyImportRows > does not write to the database (NFR-1) — 呼叫前後 prisma.person.count() 相等；(2) src/app/api/persons/import/preview/route.test.ts::/api/persons/import/preview NFR-1 > does not write to the database even when the upload contains a create-candidate — 路由層同樣斷言呼叫前後 person count 不變；(3) 靜態審查確認 src/lib/persons-import.ts 內 parseSftReport 與 classifyImportRows 全程只用 prisma.person.findMany，無任何 create/update 呼叫，且依 plan.md 技術決策記錄第 3 項刻意把 preview/apply 拆成兩支獨立路由檔案，preview route 原始碼實體上未 import applyImportSelections。(4) 額外以真實 SFT 檔案對 dev server 端對端呼叫覆核：呼叫前 GET /api/persons 回傳 18 筆在職人員（evidence/real-sft-persons-before.json），呼叫 POST /api/persons/import/preview 後再次 GET /api/persons，回傳內容逐位元組相同（evidence/real-sft-persons-after.json，diff 無差異），證實真實環境下 preview 呼叫確實未寫入資料庫。獨立重跑全數 285 測試通過。"
+  },
+  {
+    "ac_id": "NFR-2",
+    "given_when_then": "標準：「確認套用」對多筆已勾選項次的新增／更新動作，包在單一資料庫交易（prisma.$transaction）內執行，避免部分成功、部分失敗導致清單與實際資料庫狀態不一致",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "src/lib/persons-import.test.ts::applyImportSelections > rolls back the whole batch when one selection collides on employeeId（技術決策記錄 #6）— 傳入兩筆 selections（一筆合法 create、一筆會撞 unique constraint 的 replace，皆為合成 fixture），斷言呼叫拋出 AppError(409)，且交易前的 person count 在呼叫後維持不變、原本應成功的 create（E300）也未殘留於資料庫，證明整批交易確實 rollback、不會部分成功部分失敗。程式碼面確認 src/lib/persons-import.ts 第 170-183 行 applyImportSelections 使用 prisma.$transaction(selections.map(...))（陣列形式的批次交易 API），並在 catch 區塊將 unique constraint 衝突轉為 AppError(409)。"
+  }
+]

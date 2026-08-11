@@ -54,8 +54,9 @@ export async function requireAuth() {
   return session;
 }
 
-export async function requireRole(role: UserRole) {
+export async function requireRole(role: UserRole | UserRole[]) {
   const session = await requireAuth();
-  if (session.user.role !== role) throw new AppError(403, "權限不足");
+  const allowed = Array.isArray(role) ? role : [role];
+  if (!allowed.includes(session.user.role)) throw new AppError(403, "權限不足");
   return session;
 }

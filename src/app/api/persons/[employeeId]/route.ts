@@ -7,7 +7,7 @@ export async function DELETE(
   { params }: { params: Promise<{ employeeId: string }> }
 ) {
   return withErrorHandling(async () => {
-    await requireRole("developer");
+    await requireRole(["foreman", "developer"]);
     const { employeeId } = await params;
     return softDeletePerson(employeeId);
   });
