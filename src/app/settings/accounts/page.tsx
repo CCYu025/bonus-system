@@ -93,8 +93,8 @@ export default function AccountsPage() {
   }
 
   return (
-    <div className="container">
-      <h1>帳號管理</h1>
+    <>
+      <h2>帳號管理</h2>
       <p className="hint">
         僅開發者可存取本頁；建立帳號時指定的顯示姓名將用於後續稽核記錄。
       </p>
@@ -175,6 +175,6 @@ export default function AccountsPage() {
           )}
         </tbody>
       </table>
-    </div>
+    </>
   );
 }

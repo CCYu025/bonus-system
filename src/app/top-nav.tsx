@@ -31,17 +31,11 @@ export default function TopNav() {
   return (
     <nav className="topnav">
       <Link href="/">首頁</Link>
-      <Link href="/persons">人員主檔</Link>
-      <Link href="/categories">類別管理</Link>
       <Link href="/forms">出勤表單（班長）</Link>
-      <Link href="/attendance-query">出勤查詢</Link>
-      <Link href="/score-query">查詢分數</Link>
+      <Link href="/query">查詢</Link>
+      <Link href="/settings">功能設定</Link>
       {me?.role === "developer" && (
-        <>
-          <Link href="/forms?mode=supervisor">待審核（開發者）</Link>
-          <Link href="/accounts">帳號管理</Link>
-          <Link href="/score-rules">積分規則設定</Link>
-        </>
+        <Link href="/forms?mode=supervisor">待審核（開發者）</Link>
       )}
       {me && (
         <span className="hint">

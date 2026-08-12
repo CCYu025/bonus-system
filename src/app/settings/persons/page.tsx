@@ -171,8 +171,8 @@ export default function PersonsPage() {
   }
 
   return (
-    <div className="container">
-      <h1>人員主檔管理</h1>
+    <>
+      <h2>人員主檔管理</h2>
 
       {error && <div className="error-box">{error}</div>}
 
@@ -291,6 +291,6 @@ export default function PersonsPage() {
           )}
         </tbody>
       </table>
-    </div>
+    </>
   );
 }

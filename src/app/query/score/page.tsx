@@ -71,8 +71,8 @@ export default function ScoreQueryPage() {
   }
 
   return (
-    <div className="container">
-      <h1>查詢分數</h1>
+    <>
+      <h2>分數查詢</h2>
       <p className="hint">
         依目前積分規則即時計算，僅計入已核准且未作廢的出勤紀錄；規則異動後，包含過去月份在內的查詢結果都會反映最新規則。
       </p>
@@ -171,6 +171,6 @@ export default function ScoreQueryPage() {
           </tbody>
         </table>
       )}
-    </div>
+    </>
   );
 }

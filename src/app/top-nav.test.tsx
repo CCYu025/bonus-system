@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
-// jsdom 元件測試（docs/2026-08-04-attendance-scoring-rules plan.md T-6/T-7）：
-// 驗證「積分規則設定」連結僅在 developer 角色下出現在選單（AC-1/AC-11 的選單隱藏部分）。
+// jsdom 元件測試：驗證「功能設定」單一入口在所有角色下都顯示（人員主檔/類別管理
+// 對所有角色開放，故入口本身不做角色門檻），以及「待審核（開發者）」僅
+// developer 角色可見。積分規則設定/帳號管理的角色鎖定行為改在
+// src/app/settings/layout.test.tsx 驗證（已搬進側欄，不再是 top-nav 的節點）。
 // 真正的安全邊界由 API 的 401/403 測試覆蓋（見 src/app/api/*/route.test.ts），
 // 這裡只驗證選單這一層 UX 渲染邏輯。
 import "../../test/jsdom-setup";
@@ -30,16 +32,28 @@ function mockMe(role: "developer" | "foreman" | null) {
 }
 
 describe("TopNav", () => {
-  it("shows 積分規則設定 for a developer session (AC-1)", async () => {
+  it("shows 功能設定 for a developer session", async () => {
     mockMe("developer");
     render(<TopNav />);
-    expect(await screen.findByText("積分規則設定")).toBeInTheDocument();
+    expect(await screen.findByText("功能設定")).toBeInTheDocument();
   });
 
-  it("does not show 積分規則設定 for a foreman session (AC-11)", async () => {
+  it("shows 功能設定 for a foreman session too", async () => {
     mockMe("foreman");
     render(<TopNav />);
-    await waitFor(() => expect(screen.getByText("類別管理")).toBeInTheDocument());
-    expect(screen.queryByText("積分規則設定")).toBeNull();
+    expect(await screen.findByText("功能設定")).toBeInTheDocument();
+  });
+
+  it("shows 待審核（開發者） for a developer session", async () => {
+    mockMe("developer");
+    render(<TopNav />);
+    expect(await screen.findByText("待審核（開發者）")).toBeInTheDocument();
+  });
+
+  it("does not show 待審核（開發者） for a foreman session", async () => {
+    mockMe("foreman");
+    render(<TopNav />);
+    await waitFor(() => expect(screen.getByText("功能設定")).toBeInTheDocument());
+    expect(screen.queryByText("待審核（開發者）")).toBeNull();
   });
 });

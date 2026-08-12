@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-// jsdom 元件測試（比照 src/app/score-query/page.test.tsx）：mock authFetch，只驗證
+// jsdom 元件測試（比照 src/app/query/score/page.test.tsx）：mock authFetch，只驗證
 // 「欄位是否渲染」「有值/無值時儲存格內容」這類無法用純函式驗證的行為。不 import
 // @/lib/prisma，不觸發任何 DB 連線。
-import "../../../test/jsdom-setup";
+import "../../../../test/jsdom-setup";
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import AttendanceQueryPage from "./page";

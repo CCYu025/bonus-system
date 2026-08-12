@@ -171,8 +171,8 @@ export default function ScoreRulesPage() {
   const holidayRules = overtimeRules.filter((r) => r.overtimeType === "holiday");
 
   return (
-    <div className="container">
-      <h1>積分規則設定</h1>
+    <>
+      <h2>積分規則設定</h2>
       <p className="hint">
         本頁僅設定各考核項目的積分值，不涉及依出勤紀錄實際計算或彙總積分。
       </p>
@@ -283,7 +283,7 @@ export default function ScoreRulesPage() {
           {sopPerformanceRules.length === 0 && <li>尚無資料</li>}
         </ul>
       </section>
-    </div>
+    </>
   );
 }
 
