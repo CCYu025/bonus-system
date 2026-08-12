@@ -186,3 +186,54 @@ button:disabled {
   color: #666;
   font-size: 0.85rem;
 }
+
+/* 「功能設定」／「查詢」共用的側欄骨架（src/app/sidebar-layout.tsx）：側欄放在
+   .container 外面、自己的 flex row 裡，固定貼齊視窗最左側，不受右側內容欄
+   （不同子頁表格寬度不同）影響水平位置。 */
+.sidebar-shell {
+  display: flex;
+  align-items: flex-start;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 180px;
+  flex-shrink: 0;
+  padding: 24px 16px;
+  border-right: 1px solid #d0d0d0;
+  position: sticky;
+  top: 0;
+}
+
+.sidebar-title {
+  font-size: 1.15rem;
+  margin-bottom: 16px;
+}
+
+.sidebar-nav-item {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+a.sidebar-nav-item:hover {
+  background: rgba(128, 128, 128, 0.15);
+}
+
+a.sidebar-nav-item.active {
+  background: rgba(128, 128, 128, 0.25);
+  font-weight: 600;
+}
+
+.sidebar-nav-item.locked {
+  color: #999;
+  cursor: not-allowed;
+}
+
+.sidebar-content {
+  flex: 1;
+  min-width: 0;
+}

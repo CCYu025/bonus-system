@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-// jsdom 元件測試（比照 src/app/score-rules/page.test.tsx）：mock authFetch，只驗證
+// jsdom 元件測試（比照 src/app/settings/score-rules/page.test.tsx）：mock authFetch，只驗證
 // 「元素是否渲染」「勾選/送出行為」這類無法用純函式驗證的行為。不 import
 // @/lib/prisma，不觸發任何 DB 連線。分類/套用邏輯本身由
 // src/lib/persons-import.test.ts 覆蓋。
-import "../../../test/jsdom-setup";
+import "../../../../test/jsdom-setup";
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import PersonsPage from "./page";

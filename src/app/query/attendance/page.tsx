@@ -54,8 +54,8 @@ export default function AttendanceQueryPage() {
   const categorySubtotals = useMemo(() => computeCategorySubtotals(filteredRows), [filteredRows]);
 
   return (
-    <div className="container">
-      <h1>出勤查詢</h1>
+    <>
+      <h2>出勤查詢</h2>
       <p className="hint">僅顯示已核准的正式出勤資料，作廢重審後的舊版本不列入。</p>
 
       <form className="inline-form" onSubmit={handleSearch}>
@@ -171,6 +171,6 @@ export default function AttendanceQueryPage() {
           </table>
         </>
       )}
-    </div>
+    </>
   );
 }

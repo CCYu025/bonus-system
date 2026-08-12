@@ -35,8 +35,8 @@ export default function CategoriesPage() {
   const current = TABS.find((t) => t.key === activeKey) ?? TABS[0];
 
   return (
-    <div className="container">
-      <h1>類別管理</h1>
+    <>
+      <h2>類別管理</h2>
       <div className="inline-form">
         {TABS.map((t) => (
           <button
@@ -56,6 +56,6 @@ export default function CategoriesPage() {
       )}
 
       <LookupListPanel key={current.apiBase} apiBase={current.apiBase} mode={current.mode} />
-    </div>
+    </>
   );
 }

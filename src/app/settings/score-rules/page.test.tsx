@@ -2,7 +2,7 @@
 // jsdom 元件測試（docs/2026-08-04-attendance-scoring-rules plan.md T-6/T-7/T-9）：
 // 不整合真實 API，mock authFetch，只驗證「元素是否渲染」這類無法用純函式驗證的行為。
 // 不 import @/lib/prisma，不觸發任何 DB 連線。
-import "../../../test/jsdom-setup";
+import "../../../../test/jsdom-setup";
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import ScoreRulesPage from "./page";
@@ -103,7 +103,7 @@ describe("ScoreRulesPage", () => {
     render(<ScoreRulesPage />);
     await screen.findByText("跨崗位");
     const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
-    expect(headings).toEqual(["出勤類別", "加班", "配合度", "3S表現", "SOP表現"]);
+    expect(headings).toEqual(["積分規則設定", "出勤類別", "加班", "配合度", "3S表現", "SOP表現"]);
   });
 
   it("does not render an input or button for the locked 正常 row in 3S表現 (AC-2)", async () => {
