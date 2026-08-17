@@ -10,14 +10,17 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import TopNav from "./top-nav";
 
+let currentPathname = "/";
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/",
+  usePathname: () => currentPathname,
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  currentPathname = "/";
 });
 
 function mockMe(role: "developer" | "foreman" | null) {
@@ -55,5 +58,14 @@ describe("TopNav", () => {
     render(<TopNav />);
     await waitFor(() => expect(screen.getByText("功能設定")).toBeInTheDocument());
     expect(screen.queryByText("待審核（開發者）")).toBeNull();
+  });
+
+  it("renders nothing on /board and never calls /api/auth/me (docs/2026-08-14-employee-score-dashboard T-3)", async () => {
+    currentPathname = "/board";
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { container } = render(<TopNav />);
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

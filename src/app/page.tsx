@@ -18,6 +18,9 @@ export default function Home() {
         <li>
           <Link href="/settings">功能設定（人員主檔／類別管理／積分規則設定／帳號管理）</Link>
         </li>
+        <li>
+          <Link href="/board">員工分數查詢（免登入，可分享給現場平板）</Link>
+        </li>
       </ul>
     </div>
   );

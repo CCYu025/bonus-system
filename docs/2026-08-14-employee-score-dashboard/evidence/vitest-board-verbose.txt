@@ -1,0 +1,90 @@
+
+ RUN  v4.1.10 C:/Users/tomof/OneDrive/桌面/Yu/WorkSpace/bonus-system
+
+applying: 20260729000000_init
+applying: 20260729010000_add_user_session
+applying: 20260801000000_add_attendance_extended_fields
+applying: 20260803000000_add_leave_lock_and_sop_field
+applying: 20260804000000_add_score_rule_tables
+applying: 20260806000000_add_lookup_score_rule_tables
+done.
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 月份格式驗證 > rejects a missing or malformed month 133ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 出勤類別分（AC-2） > takes CategoryScoreRule.points when a rule exists for the category 295ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 出勤類別分（AC-2） > counts as 0 when no CategoryScoreRule exists for the category 126ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 加班分：正常出勤／平日（AC-3） > applies the matching weekday tier by overtimeHours 142ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 加班分：正常出勤／平日（AC-3） > applies the open-ended weekday tier for higher hour values 151ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 加班分：正常出勤／平日（AC-3） > falls back to 0 when overtimeHours falls outside every configured tier 138ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 加班分：假日加班（AC-4） > applies the plain tier for hours within its range 155ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 加班分：假日加班（AC-4） > applies exactly 8 hours with no extra-hour bonus 137ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 加班分：假日加班（AC-4） > adds pointsPerExtraHour × (hours - 8) once past the 8-hour base (9h) 143ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 加班分：假日加班（AC-4） > adds pointsPerExtraHour × (hours - 8) for a larger value (12h) 145ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 加班分：假日加班（AC-4） > categoryScore stays 0 for 假日加班 since it never has a CategoryScoreRule row 143ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 其他類別無加班分（AC-5） > scores overtime as 0 for a leave-type category (overtimeHours stays null) 131ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 只計入核准且未作廢的紀錄（AC-6） > excludes a form that is still pending_review 115ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 只計入核准且未作廢的紀錄（AC-6） > excludes a rejected form 128ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 只計入核准且未作廢的紀錄（AC-6） > only counts the current live version after a void-and-resubmit cycle 214ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 只計入核准且未作廢的紀錄（AC-6） > excludes 未填 records from an approved form 143ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 個人總分加總與明細排序（AC-7 / AC-9） > sums categoryScore + overtimeScore across multiple records into totalScore, sorted by date 199ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 依總分排序（AC-8） > sorts the summary list by totalScore descending 136ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 人員清單聯集（AC-10 / AC-11 / AC-12） > still lists an active person with no records this month, scoring 0 (AC-10) 24ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 人員清單聯集（AC-10 / AC-11 / AC-12） > lists a person terminated mid-month, scored from their earlier records (AC-11) 136ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 人員清單聯集（AC-10 / AC-11 / AC-12） > excludes a person terminated in an earlier month with no records this month (AC-12) 188ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 配合度／3S表現／SOP表現積分（docs/2026-08-06-score-rules-lookup-scoring AC-10） > sums compliance/3S points and counts an unfilled SOP field as 0, into totalScore 173ms
+ ✓ src/lib/score-query.test.ts > queryScoresByMonth — 未設定積分的項目計為 0 分（docs/2026-08-06-score-rules-lookup-scoring AC-11） > counts a 3S performance item with no score rule set as 0 points 128ms
+ ✓ src/app/board/person-modal.test.tsx > PersonModal > renders name, employeeId and rank (AC-4) 162ms
+ ✓ src/app/board/person-modal.test.tsx > PersonModal > moves focus into the dialog on open (AC-15) 102ms
+ ✓ src/app/board/person-modal.test.tsx > PersonModal > closes on Escape (AC-4/AC-15) 55ms
+ ✓ src/app/board/person-modal.test.tsx > PersonModal > closes when clicking the backdrop but not when clicking inside the dialog (AC-4) 31ms
+ ✓ src/app/board/person-modal.test.tsx > PersonModal > closes via the close button (AC-4) 105ms
+ ✓ src/app/board/person-modal.test.tsx > PersonModal > keeps Tab focus cycling within the dialog (AC-15) 231ms
+ ✓ src/app/board/person-modal.test.tsx > PersonModal > returns focus to the triggering element when unmounted (AC-15) 18ms
+ ✓ src/app/board/person-modal.test.tsx > PersonModal > renders as a bottom sheet with a drag handle on narrow screens (AC-13) 16ms
+ ✓ src/app/board/person-modal.test.tsx > PersonModal > renders as a centered dialog with no drag handle on wide screens (AC-14) 15ms
+ ✓ src/app/board/person-modal.test.tsx > PersonModal > closes on a downward swipe gesture when narrow (AC-13) 20ms
+ ✓ src/app/board/person-modal.test.tsx > PersonModal > does not close on a small/upward touch movement when narrow (AC-13) 16ms
+ ✓ src/app/board/page.test.tsx > BoardPage > renders the full ranking sorted by total score, no employeeId input required (AC-2) 254ms
+ ✓ src/app/board/page.test.tsx > BoardPage > shows "該月份尚無資料" when the API returns an empty list (AC-3) 14ms
+ ✓ src/app/board/page.test.tsx > BoardPage > shows only rank/name/total columns on a narrow screen (AC-13) 61ms
+ ✓ src/app/board/page.test.tsx > BoardPage > shows the full column set on a wide screen (AC-14) 54ms
+ ✓ src/app/board/page.test.tsx > BoardPage > opens the person modal when a row is clicked (AC-4) 106ms
+ ✓ src/app/board/page.test.tsx > BoardPage > re-fetches and re-renders when the month is changed, without a full page reload (AC-12) 65ms
+ ✓ src/app/api/public/score-board/by-month/route.test.ts > /api/public/score-board/by-month GET (AC-6/AC-3) > returns 200 with no session at all (AC-6) 162ms
+ ✓ src/app/api/public/score-board/by-month/route.test.ts > /api/public/score-board/by-month GET (AC-6/AC-3) > does not set any cookie, and creates no session row (AC-7) 17ms
+ ✓ src/app/api/public/score-board/by-month/route.test.ts > /api/public/score-board/by-month GET (AC-6/AC-3) > returns [] when the month has no qualifying data (AC-3 data precondition) 16ms
+ ✓ src/app/api/public/score-board/by-month/route.test.ts > /api/public/score-board/by-month matches the authenticated /api/score-query/by-month (AC-5/NFR-2) > returns identical scores/records for the same month 245ms
+ ✓ src/app/api/score-query/by-month/route.test.ts > /api/score-query/by-month GET auth > returns 401 with no session (AC-14) 125ms
+ ✓ src/app/api/score-query/by-month/route.test.ts > /api/score-query/by-month GET auth > returns 200 for a foreman session (AC-13) 117ms
+ ✓ src/app/api/score-query/by-month/route.test.ts > /api/score-query/by-month GET auth > returns 200 for a developer session (AC-13) 43ms
+ ✓ src/app/board/stacked-bar-chart.test.tsx > StackedBarChart > renders at most TOP_N_FOR_CHART (8) bars when there are more people 153ms
+ ✓ src/app/board/stacked-bar-chart.test.tsx > StackedBarChart > renders all people when there are fewer than TOP_N_FOR_CHART 16ms
+ ✓ src/app/board/stacked-bar-chart.test.tsx > StackedBarChart > uses the same color per category as SCORE_CATEGORIES for each segment 10ms
+ ✓ src/app/board/stacked-bar-chart.test.tsx > StackedBarChart > does not render a segment for a zero-value category 8ms
+ ✓ src/app/board/detail-table.test.tsx > DetailTable > renders one row per record with the right values 122ms
+ ✓ src/app/board/detail-table.test.tsx > DetailTable > renders a placeholder row when there are no records 10ms
+ ✓ src/app/board/detail-table.test.tsx > DetailTable > hides the scroll fade once scrolled to the bottom 40ms
+ ✓ src/app/page.test.tsx > Home > renders a link to /board (AC-8) 176ms
+ ✓ src/app/board/donut-chart.test.tsx > DonutChart > shows the true total (including negative categories) in the center, not the positive-only sum 115ms
+ ✓ src/app/board/donut-chart.test.tsx > DonutChart > renders a ring segment only for categories with a positive value 17ms
+ ✓ src/app/board/donut-chart.test.tsx > DonutChart > lists all five categories in the legend, including zero and negative values 23ms
+ ✓ src/app/board/donut-chart.test.tsx > DonutChart > renders no ring segments when every category is zero or negative 14ms
+ ✓ src/app/top-nav.test.tsx > TopNav > shows 功能設定 for a developer session 65ms
+ ✓ src/app/top-nav.test.tsx > TopNav > shows 功能設定 for a foreman session too 11ms
+ ✓ src/app/top-nav.test.tsx > TopNav > shows 待審核（開發者） for a developer session 8ms
+ ✓ src/app/top-nav.test.tsx > TopNav > does not show 待審核（開發者） for a foreman session 6ms
+ ✓ src/app/top-nav.test.tsx > TopNav > renders nothing on /board and never calls /api/auth/me (docs/2026-08-14-employee-score-dashboard T-3) 17ms
+ ✓ src/app/board/use-is-narrow-screen.test.ts > useIsNarrowScreen > returns true initially when matchMedia already matches (narrow) 22ms
+ ✓ src/app/board/use-is-narrow-screen.test.ts > useIsNarrowScreen > returns false initially when matchMedia does not match (wide) 2ms
+ ✓ src/app/board/use-is-narrow-screen.test.ts > useIsNarrowScreen > updates when the media query change event fires 3ms
+ ✓ src/proxy.test.ts > proxy.ts matcher > does not match /board (AC-1) 2ms
+ ✓ src/proxy.test.ts > proxy.ts matcher > still matches existing protected paths 0ms
+ ✓ src/proxy.test.ts > proxy.ts matcher > still excludes api/login/static as before 0ms
+ ✓ src/proxy.test.ts > proxy() function (called on a matched path) > still redirects to /login when there is no session cookie 4ms
+ ✓ src/app/board/score-colors.test.ts > SCORE_CATEGORIES > covers all five PersonScoreSummary score fields 3ms
+ ✓ src/app/board/score-colors.test.ts > SCORE_CATEGORIES > assigns a distinct color to each category 0ms
+ ✓ src/app/board/score-colors.test.ts > SCORE_CATEGORIES > gives every category a non-empty label 0ms
+
+ Test Files  13 passed (13)
+      Tests  74 passed (74)
+   Start at  15:29:20
+   Duration  26.62s (transform 921ms, setup 143ms, import 4.90s, tests 6.36s, environment 11.30s)
+

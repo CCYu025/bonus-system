@@ -1,0 +1,107 @@
+[
+  {
+    "ac_id": "AC-1",
+    "given_when_then": "Given 使用者（含完全未登入、瀏覽器沒有任何 session cookie） / When 造訪員工分數查詢頁面 / Then 系統不將其導向 /login，直接呈現頁面內容",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "evidence/vitest-board-verbose.txt L78,80: src/proxy.test.ts > 'does not match /board (AC-1)' 與 'still excludes api/login/static as before' 皆通過，確認 /board 不在 proxy matcher 涵蓋範圍內、不會被導向 /login；src/proxy.ts config.matcher 已加入 board 排除並附 NFR-1/FR-1 註解。全量 evidence/vitest-run.txt：366 passed。"
+  },
+  {
+    "ac_id": "AC-2",
+    "given_when_then": "Given 系統中當下月份存在至少一位計分人員 / When 使用者造訪頁面 / Then 不需輸入任何條件，畫面直接顯示當下月份所有計分人員依總分排序的排行榜，每筆資料顯示姓名、工號、總分",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "evidence/vitest-board-verbose.txt L45: src/app/board/page.test.tsx > 'renders the full ranking sorted by total score, no employeeId input required (AC-2)' PASS，斷言依總分排序渲染、無需輸入工號查詢條件；寬螢幕欄位另由 AC-14 測試確認含姓名/工號/總分欄位。"
+  },
+  {
+    "ac_id": "AC-3",
+    "given_when_then": "Given 目前顯示中的月份沒有任何符合計分名單條件的人員 / When 使用者檢視頁面 / Then 畫面顯示明確的「該月份尚無資料」提示文字，不是例外錯誤畫面、也不是無說明的空白列表",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "evidence/vitest-board-verbose.txt L46: src/app/board/page.test.tsx > 'shows \"該月份尚無資料\" when the API returns an empty list (AC-3)' PASS；L53: src/app/api/public/score-board/by-month/route.test.ts > 'returns [] when the month has no qualifying data (AC-3 data precondition)' PASS，確認 API 回傳空陣列、前端渲染提示文字而非空表格。"
+  },
+  {
+    "ac_id": "AC-4",
+    "given_when_then": "Given 排行榜中已顯示至少一位人員 / When 使用者點選該人員所在列 / Then 畫面開啟彈窗顯示該人員的分數組成與每日明細；使用者可透過彈窗右上角關閉鈕、點擊背景遮罩、或按 Esc 鍵關閉彈窗，關閉後回到排行榜、排行榜本身不受影響",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "evidence/vitest-board-verbose.txt L34-40,49: src/app/board/person-modal.test.tsx > 'renders name, employeeId and rank (AC-4)'、'closes on Escape (AC-4/AC-15)'、'closes when clicking the backdrop but not when clicking inside the dialog (AC-4)'、'closes via the close button (AC-4)' 全通過；src/app/board/page.test.tsx > 'opens the person modal when a row is clicked (AC-4)' PASS。三種關閉方式與開啟均已驗證，排行榜資料 state 於彈窗開關過程未被修改（page.test.tsx 未重新 mock fetch，關閉後仍可查詢原表格內容）。"
+  },
+  {
+    "ac_id": "AC-5",
+    "given_when_then": "Given 某人員同時可透過本頁面與既有 /query/score（登入後）查詢 / When 兩邊皆查詢同一人、同一月份的資料 / Then 五項分數、總分、每日明細內容完全一致，不因免登入而有不同的計算結果",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "evidence/vitest-board-verbose.txt L54: src/app/api/public/score-board/by-month/route.test.ts > '/api/public/score-board/by-month matches the authenticated /api/score-query/by-month (AC-5/NFR-2) > returns identical scores/records for the same month' PASS。測試以同一組 fixture（正常出勤紀錄）分別呼叫公開 API 與既有已登入 API，並以 expect(publicBody).toEqual(authedBody) 逐欄位比對，結果完全相等。"
+  },
+  {
+    "ac_id": "AC-6",
+    "given_when_then": "Given 任何造訪此頁面的使用者，不具備任何密碼、PIN 或其他驗證資訊 / When 造訪頁面並瀏覽排行榜 / Then 系統正常顯示當月所有人的分數與排名",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "evidence/vitest-board-verbose.txt L51: src/app/api/public/score-board/by-month/route.test.ts > 'returns 200 with no session at all (AC-6)' PASS（無 sid cookie 呼叫回應 200，非 401）。route.ts 內未呼叫 requireAuth/requireRole，並有明確指向本 spec NFR-1 的註解說明為刻意的產品決策。"
+  },
+  {
+    "ac_id": "AC-7",
+    "given_when_then": "Given 使用者完成一次頁面瀏覽（含展開任意人員明細） / When 瀏覽流程結束 / Then 系統不因此建立任何 session/cookie，不將這次瀏覽視為一次登入行為，既有 developer/foreman 的登入模型與人數不受影響",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "evidence/vitest-board-verbose.txt L52: src/app/api/public/score-board/by-month/route.test.ts > 'does not set any cookie, and creates no session row (AC-7)' PASS：呼叫前後 prisma.session.count() 相等，回應 headers 不含 set-cookie。"
+  },
+  {
+    "ac_id": "AC-8",
+    "given_when_then": "Given 已登入的 foreman/developer 使用者 / When 造訪首頁（/） / Then 畫面上看得到一個連結指向 FR-1 的公開排行榜頁面；同時，未登入使用者造訪首頁本身仍會被導向 /login",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "evidence/vitest-board-verbose.txt L65: src/app/page.test.tsx > 'renders a link to /board (AC-8)' PASS，首頁渲染出 href=/board 的連結。首頁登入門檻不變由 src/proxy.test.ts 兩筆測試組合佐證：L79 'still matches existing protected paths'（斷言 '/' 仍匹配 config.matcher，代表 proxy() 仍會對根路徑執行）與 L81 'still redirects to /login when there is no session cookie'（proxy() 對已匹配路徑、無 session 時導向 /login）。"
+  },
+  {
+    "ac_id": "AC-9",
+    "given_when_then": "Given 使用者已開啟某人員的個人資訊彈窗 / When 檢視彈窗上半部 / Then 畫面顯示一個甜甜圈圖，環狀部分依五項分數中數值為正的項目分色呈現各自佔比，圖表正中央顯示總分數字（含負值影響後的真實總和）；圖例列出全部五項（含 0 或負數者）的名稱與實際數值，負值以視覺上可辨識的方式標示",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "evidence/vitest-board-verbose.txt L66-69: src/app/board/donut-chart.test.tsx 四筆測試全通過——'shows the true total (including negative categories) in the center, not the positive-only sum'（總分置中顯示 135，非正值加總 145）、'renders a ring segment only for categories with a positive value'（只有 3 個正值項目產生環狀 segment）、'lists all five categories in the legend, including zero and negative values'（圖例列出全部五項含 -10 與 0）、'renders no ring segments when every category is zero or negative'。負值視覺標示部分經程式碼審查確認：src/app/board/donut-chart.tsx L69-81 對負值套用 color:#c0392b、fontWeight:600 與負號顯示，與正值（+前綴）明確區隔；此部分測試僅斷言文字內容存在、未斷言樣式屬性，故以程式碼審查補充佐證，非測試失敗。"
+  },
+  {
+    "ac_id": "AC-10",
+    "given_when_then": "Given 某人員當月的每日紀錄筆數較多（例如接近整月） / When 使用者開啟該人員的個人資訊彈窗 / Then 彈窗整體高度維持固定上限，超出可視範圍的每日明細列透過表格區域自身的捲動呈現；捲動時表格表頭固定在該區域頂部持續可見；區域底部尚有未捲動到的內容時顯示淡出漸層陰影提示，捲到底部時陰影消失",
+    "verification_method": "playwright",
+    "result": "PASS",
+    "evidence": "evidence/playwright-ac10.txt: 'ok 1 [chromium] › e2e\\board.spec.ts:8:5 › person modal detail table stays fixed-height, scrolls internally, keeps a sticky header, and shows/hides the scroll fade @AC-10 (1.8s)'，1 passed。真實瀏覽器排版驗證：彈窗高度 <= viewport 高度 85%、明細區域 scrollHeight > clientHeight 可捲動、捲動前後表頭座標變化 <2px（sticky 有效）、捲到底陰影 opacity=0、捲回頂部陰影 opacity=1。輔助：evidence/vitest-board-verbose.txt L62-64 src/app/board/detail-table.test.tsx 三筆 jsdom 測試補充驗證陰影顯示/隱藏的邏輯分支（scrollTop/clientHeight/scrollHeight 比對）本身正確，但 sticky 定位與彈窗高度為真實排版行為，主要驗證依據為 Playwright。執行前後確認無殘留 node/chrome process（tasklist 僅剩 chrome-native-host.exe，執行前後一致）。"
+  },
+  {
+    "ac_id": "AC-11",
+    "given_when_then": "Given 排行榜已顯示當月計分人員資料 / When 使用者檢視排行榜頁面 / Then 頁面上有一張堆疊長條圖，顯示目前總分前 N 名人員的五項分數組成，顏色對應與 AC-9 甜甜圈圖一致，且圖表數值與排行榜/彈窗顯示的對應人員分數一致；若當月符合資格人員少於 N 人，顯示全部人員",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "evidence/vitest-board-verbose.txt L58-61: src/app/board/stacked-bar-chart.test.tsx 四筆測試全通過——'renders at most TOP_N_FOR_CHART (8) bars when there are more people'（12 人時只渲染 8 條）、'renders all people when there are fewer than TOP_N_FOR_CHART'（3 人時渲染全部 3 條）、'uses the same color per category as SCORE_CATEGORIES for each segment'（顏色與共用對應表 score-colors.ts 一致，即與甜甜圈圖 T-8 同源）、'does not render a segment for a zero-value category'。圖表資料直接取自排行榜已 fetch 的資料（stacked-bar-chart.tsx 接收同一份 rows），未重新呼叫 API。"
+  },
+  {
+    "ac_id": "AC-12",
+    "given_when_then": "Given 使用者在頁面上看到月份選擇器（預設值為當下月份） / When 使用者選擇跟目前不同的月份 / Then 排行榜、堆疊長條圖皆重新載入並顯示該月份的資料，不需重新整理頁面；之後開啟任一人員的個人資訊彈窗也顯示該月份的資料",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "evidence/vitest-board-verbose.txt L50: src/app/board/page.test.tsx > 're-fetches and re-renders when the month is changed, without a full page reload (AC-12)' PASS：切換 <input type=\"month\"> 後表格內容由第一個月份資料換成第二個月份資料，且 window.location.reload 未被呼叫（reloadSpy 未觸發），確認非整頁重新整理。彈窗資料來自同一份已更新的 rows state，天然滿足月份切換後彈窗也顯示新資料（plan.md 技術決策說明）。"
+  },
+  {
+    "ac_id": "AC-13",
+    "given_when_then": "Given 使用者以窄螢幕（手機/平板）瀏覽頁面 / When 檢視排行榜清單、並點選任一人員 / Then 排行榜清單只顯示排名／姓名／總分三欄；點選後畫面底部滑出操作表（佔滿螢幕寬度）顯示該人員完整資訊；使用者可透過下滑手勢、點擊背景空白處、或關閉鈕關閉操作表",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "evidence/vitest-board-verbose.txt L47: src/app/board/page.test.tsx > 'shows only rank/name/total columns on a narrow screen (AC-13)' PASS（窄螢幕欄位頭 = [排名,姓名,總分]）。L41,43,44: src/app/board/person-modal.test.tsx > 'renders as a bottom sheet with a drag handle on narrow screens (AC-13)'、'closes on a downward swipe gesture when narrow (AC-13)'（touchstart Y=100 → touchend Y=220，位移 120px 觸發關閉）、'does not close on a small/upward touch movement when narrow (AC-13)'（位移 10px 不觸發）皆通過。背景點擊關閉、關閉鈕關閉的通用邏輯由 AC-4 測試共用驗證（同一元件同一套 handleBackdropClick/onClose）。"
+  },
+  {
+    "ac_id": "AC-14",
+    "given_when_then": "Given 使用者以寬螢幕（PC）瀏覽頁面 / When 檢視排行榜清單、並點選任一人員 / Then 排行榜清單顯示完整欄位（含五項分數）；點選後以置中對話框顯示該人員完整資訊，可透過點擊背景、Esc 鍵、或關閉鈕關閉",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "evidence/vitest-board-verbose.txt L48: src/app/board/page.test.tsx > 'shows the full column set on a wide screen (AC-14)' PASS（欄位頭 = [排名,姓名,工號,出勤類別分,加班分,配合度分,3S分,SOP分,總分]）。L42: src/app/board/person-modal.test.tsx > 'renders as a centered dialog with no drag handle on wide screens (AC-14)' PASS。Esc/背景點擊/關閉鈕三種關閉方式由 AC-4/AC-15 測試共用驗證（同一元件同一套關閉邏輯，isNarrow=false 時不掛載觸控手勢處理器）。"
+  },
+  {
+    "ac_id": "AC-15",
+    "given_when_then": "Given 使用者以鍵盤操作頁面（不使用滑鼠/觸控） / When 透過鍵盤開啟某人員的個人資訊彈窗 / Then 焦點自動移入彈窗內；Tab/Shift+Tab 只在彈窗內部的可互動元素間循環，不會跳到背景排行榜；按 Esc 或聚焦到關閉鈕並確認可關閉彈窗；關閉後焦點回到原本觸發開啟的那一列",
+    "verification_method": "pytest",
+    "result": "PASS",
+    "evidence": "evidence/vitest-board-verbose.txt L35,36,39,40: src/app/board/person-modal.test.tsx > 'moves focus into the dialog on open (AC-15)'（document.activeElement 落在 dialog 內）、'closes on Escape (AC-4/AC-15)'、'keeps Tab focus cycling within the dialog (AC-15)'（連續 5 次 Tab 皆停留於 dialog 內）、'returns focus to the triggering element when unmounted (AC-15)'（unmount 後 activeElement 回到原 trigger 按鈕）全通過。role=dialog/aria-modal=true/aria-labelledby 指向姓名節點由 src/app/board/person-modal.tsx L90-92 程式碼審查確認（NFR-4）。"
+  }
+]

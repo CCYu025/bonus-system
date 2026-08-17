@@ -17,6 +17,8 @@ export function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
+// docs/2026-08-14-employee-score-dashboard/spec.md FR-1：/board 是刻意免登入的
+// 公開頁面，排除在導轉之外；首頁（/）與其餘既有頁面的 matcher 規則維持不變。
 export const config = {
-  matcher: ["/((?!api|login|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api|login|board|_next/static|_next/image|favicon.ico).*)"],
 };

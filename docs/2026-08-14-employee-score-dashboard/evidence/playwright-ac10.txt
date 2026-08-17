@@ -1,0 +1,14 @@
+applying: 20260729000000_init
+applying: 20260729010000_add_user_session
+applying: 20260801000000_add_attendance_extended_fields
+applying: 20260803000000_add_leave_lock_and_sop_field
+applying: 20260804000000_add_score_rule_tables
+applying: 20260806000000_add_lookup_score_rule_tables
+done.
+e2e/global-setup: seeded 25 days for E2E測試員 in 2026-08
+
+Running 1 test using 1 worker
+
+  ok 1 [chromium] › e2e\board.spec.ts:8:5 › person modal detail table stays fixed-height, scrolls internally, keeps a sticky header, and shows/hides the scroll fade @AC-10 (1.8s)
+
+  1 passed (7.7s)

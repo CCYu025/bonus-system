@@ -217,8 +217,15 @@ export async function queryScoresByMonth(month: string): Promise<PersonScoreSumm
   for (const summary of result) {
     summary.records.sort((a, b) => a.date.localeCompare(b.date));
   }
-  // AC-8：彙總列表依總分由高到低排序。
-  result.sort((a, b) => b.totalScore - a.totalScore);
+  // AC-8：彙總列表依總分由高到低排序；docs/2026-08-14-employee-score-dashboard
+  // spec.md FR-4：總分相同時依姓名（zh-Hant）、再依工號排序，確保排序結果在任何
+  // 情況下都是確定性的，供 /query/score 與新的免登入排行榜共用同一份排序邏輯。
+  result.sort(
+    (a, b) =>
+      b.totalScore - a.totalScore ||
+      a.personName.localeCompare(b.personName, "zh-Hant") ||
+      a.employeeId.localeCompare(b.employeeId)
+  );
 
   return result;
 }

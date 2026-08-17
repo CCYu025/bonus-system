@@ -15,6 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run db:seed:admin` — seed the one developer login account (idempotent)
 - `npm test` — run the test suite once (Vitest, against a disposable `prisma/test.db`)
 - `npm run test:watch` — Vitest watch mode
+- `npm run test:e2e` — Playwright (real-browser layout checks only, e.g. sticky/scroll behavior — see `docs/testing.md`; against a separate disposable `prisma/e2e.db`, not wired into `npm test`)
 
 ## Before you touch these areas, read the matching doc
 
