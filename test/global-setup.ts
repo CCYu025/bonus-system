@@ -1,22 +1,25 @@
 import { execSync } from "node:child_process";
-import { existsSync, rmSync } from "node:fs";
 import path from "node:path";
+import { schemaScopedDatabaseUrl } from "./db-url";
 
 const repoRoot = path.resolve(__dirname, "..");
-const testDbPath = path.resolve(repoRoot, "prisma/test.db");
 
-// Runs once before the whole test run (not per test file): rebuilds
-// prisma/test.db from scratch using the same hand-written SQL migrations the
-// real dev/prod db uses (see docs/database.md), so schema drift between test
-// and dev is impossible.
+// Runs once before the whole test run (not per test file): rebuilds the
+// "test" Postgres schema from scratch using the real prisma/migrations/*
+// (see docs/database.md), so schema drift between test and dev is impossible.
 export default function setup() {
-  for (const p of [testDbPath, `${testDbPath}-journal`]) {
-    if (existsSync(p)) rmSync(p);
-  }
+  const databaseUrl = schemaScopedDatabaseUrl("test");
+  const env = { ...process.env, DATABASE_URL: databaseUrl };
 
-  execSync("node scripts/migrate.cjs", {
+  execSync("node scripts/reset-schema.cjs", {
     cwd: repoRoot,
-    env: { ...process.env, MIGRATE_DB_PATH: testDbPath },
+    env,
+    stdio: "inherit",
+  });
+
+  execSync("npx prisma migrate deploy", {
+    cwd: repoRoot,
+    env,
     stdio: "inherit",
   });
 }

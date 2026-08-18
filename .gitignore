@@ -42,18 +42,6 @@ next-env.d.ts
 
 /src/generated/prisma
 
-# sqlite local database (regenerate via `npm run db:migrate` + `npm run db:seed`)
-/prisma/dev.db
-/prisma/dev.db-journal
-
-# sqlite test database (rebuilt from scratch by test/global-setup.ts on every `npm test`)
-/prisma/test.db
-/prisma/test.db-journal
-
-# sqlite e2e database (rebuilt from scratch by e2e/global-setup.ts on every `npm run test:e2e`)
-/prisma/e2e.db
-/prisma/e2e.db-journal
-
 # Playwright
 /test-results/
 /playwright-report/

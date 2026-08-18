@@ -1,38 +1,49 @@
 // T-14: creates the single seed developer account (idempotent) so the system
 // can be logged into immediately after migration, before any other account exists.
-const path = require("node:path");
 const crypto = require("node:crypto");
 const bcrypt = require("bcryptjs");
-const Database = require("better-sqlite3");
+const { Client } = require("pg");
 
-const dbPath = path.join(__dirname, "..", "prisma", "dev.db");
-const db = new Database(dbPath);
-db.pragma("foreign_keys = ON");
+async function main() {
+  const databaseUrl = process.env.DATABASE_URL;
+  const client = new Client({ connectionString: databaseUrl });
+  await client.connect();
 
-const now = () => new Date().toISOString();
+  // `pg` doesn't read Prisma's `?schema=` query param on its own — set the
+  // session's search_path explicitly so test/e2e runs (which use an
+  // isolated schema, see test/db-url.ts) hit the right tables.
+  const schema = new URL(databaseUrl).searchParams.get("schema");
+  if (schema) {
+    await client.query(`SET search_path TO "${schema}"`);
+  }
 
-const username = process.env.ADMIN_USERNAME ?? "admin";
-const password = process.env.ADMIN_PASSWORD ?? "admin1234";
-const displayName = process.env.ADMIN_DISPLAY_NAME ?? "系統管理員";
+  const now = () => new Date();
 
-const existing = db
-  .prepare("SELECT id FROM user WHERE username = ?")
-  .get(username);
+  const username = process.env.ADMIN_USERNAME ?? "admin";
+  const password = process.env.ADMIN_PASSWORD ?? "admin1234";
+  const displayName = process.env.ADMIN_DISPLAY_NAME ?? "系統管理員";
 
-if (existing) {
-  console.log(`skip (already exists): ${username}`);
-} else {
-  const passwordHash = bcrypt.hashSync(password, 12);
-  db.prepare(
-    `INSERT INTO user (id, username, passwordHash, role, displayName, isActive, createdAt, updatedAt)
-     VALUES (@id, @username, @passwordHash, 'developer', @displayName, 1, @createdAt, @updatedAt)`
-  ).run({
-    id: crypto.randomUUID(),
-    username,
-    passwordHash,
-    displayName,
-    createdAt: now(),
-    updatedAt: now(),
-  });
-  console.log(`seeded developer account: ${username} (password: ${password})`);
+  const existing = await client.query(
+    `SELECT id FROM "user" WHERE username = $1`,
+    [username]
+  );
+
+  if (existing.rows.length > 0) {
+    console.log(`skip (already exists): ${username}`);
+  } else {
+    const passwordHash = bcrypt.hashSync(password, 12);
+    await client.query(
+      `INSERT INTO "user" (id, username, "passwordHash", role, "displayName", "isActive", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, 'developer', $4, true, $5, $5)`,
+      [crypto.randomUUID(), username, passwordHash, displayName, now()]
+    );
+    console.log(`seeded developer account: ${username} (password: ${password})`);
+  }
+
+  await client.end();
 }
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

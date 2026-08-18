@@ -9,6 +9,27 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bonus_system
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # test/global-setup.ts and e2e/global-setup.ts derive isolated per-run
+      # URLs from this by pinning the `schema` query param (see test/db-url.ts).
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/bonus_system
+
     steps:
       - uses: actions/checkout@v4
 

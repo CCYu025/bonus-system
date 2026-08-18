@@ -2,24 +2,21 @@
 
 Read this when touching `prisma/schema.prisma`, writing a migration, or working with `AttendanceForm`/`AttendanceRecord` version-chain logic.
 
-## Migration workflow (non-standard — read before running any prisma migrate command)
+## Migration workflow
 
-On this machine, Windows Application Control policy blocks Prisma's native schema-engine binary, so `prisma migrate dev` / `db push` cannot run. Prisma Client generation (WASM-based) still works via `prisma generate`.
+Database is Postgres (`@prisma/adapter-pg`, see `src/lib/prisma.ts`); `DATABASE_URL` must point at a running Postgres instance (local, Docker, or a Railway dev database) for any command that needs a live connection.
 
-Instead:
-1. Write the migration SQL by hand in `prisma/migrations/<timestamp>_<name>/migration.sql` (follow the exact CREATE TABLE / CREATE INDEX style of existing migrations — table names are `snake_case` via `@@map`, columns stay camelCase).
-2. Update `prisma/schema.prisma` to match.
-3. Run `npm run db:migrate` — this applies any `migration.sql` not yet recorded in a local `_applied_migrations` table (see `scripts/migrate.cjs`), it does not diff the schema for you.
-4. Run `npx prisma generate` to regenerate `src/generated/prisma` (gitignored, must exist locally to build).
-
-There is no `prisma migrate dev` shortcut here — always do both steps (hand-written SQL + `db:migrate` + `generate`).
+1. Update `prisma/schema.prisma`.
+2. Run `npx prisma migrate dev --name <description>` against a real Postgres connection — this diffs the schema, writes `prisma/migrations/<timestamp>_<name>/migration.sql`, and applies it in one step. (An earlier version of this project ran on SQLite with a hand-written-SQL workaround because the schema-engine binary was blocked by this machine's Windows Application Control policy at the time; that restriction no longer applies to `prisma migrate diff`/`generate`, and the project has since moved fully to Postgres — if `migrate dev`'s live-DB commands ever hit the same block again, fall back to `npx prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --script` to generate the SQL by hand and apply it with `prisma migrate resolve`.)
+3. Run `npx prisma generate` to regenerate `src/generated/prisma` (gitignored, must exist locally to build).
+4. In production, migrations are applied via `npx prisma migrate deploy` (`npm run db:migrate`), wired into `railway.json`'s deploy start command so every deploy applies pending migrations before the app starts.
 
 ## Seed scripts
 
 - `npm run db:seed` (`scripts/seed.cjs`): idempotent, seeds the five default `attendance_category` rows, marks the leave-type ones' `locksExtendedFields = true`, and ensures a single `isLocked = true` "正常" row exists in `three_s_performance`/`sop_performance` (reusing an existing hand-created one by name if present — see schema-shape section above).
 - `npm run db:seed:admin` (`scripts/seed-admin.cjs`): idempotent, creates the single seed `developer` account (default `admin`/`admin1234`, override via `ADMIN_USERNAME`/`ADMIN_PASSWORD`/`ADMIN_DISPLAY_NAME` env vars).
 
-Both scripts talk to `prisma/dev.db` directly via `better-sqlite3`, not through Prisma Client — they exist specifically to work around the blocked migration engine, so keep them dependency-free (no Prisma Client, no TS transpilation) if you add more.
+Both scripts talk to Postgres directly via the `pg` driver (raw SQL, not through Prisma Client) — kept dependency-light and TS-transpilation-free since they run as plain `node scripts/*.cjs`, so keep that convention if you add more.
 
 ## Schema shape
 
