@@ -5,8 +5,17 @@ const bcrypt = require("bcryptjs");
 const { Client } = require("pg");
 
 async function main() {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  const databaseUrl = process.env.DATABASE_URL;
+  const client = new Client({ connectionString: databaseUrl });
   await client.connect();
+
+  // `pg` doesn't read Prisma's `?schema=` query param on its own — set the
+  // session's search_path explicitly so test/e2e runs (which use an
+  // isolated schema, see test/db-url.ts) hit the right tables.
+  const schema = new URL(databaseUrl).searchParams.get("schema");
+  if (schema) {
+    await client.query(`SET search_path TO "${schema}"`);
+  }
 
   const now = () => new Date();
 

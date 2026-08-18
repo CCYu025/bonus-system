@@ -27,6 +27,9 @@ export default async function globalSetup() {
 
   const client = new Client({ connectionString: databaseUrl });
   await client.connect();
+  // `pg` doesn't read Prisma's `?schema=` query param on its own — set the
+  // session's search_path explicitly so this hits the "e2e" schema.
+  await client.query(`SET search_path TO "e2e"`);
   const now = () => new Date();
 
   const categoryId = crypto.randomUUID();
