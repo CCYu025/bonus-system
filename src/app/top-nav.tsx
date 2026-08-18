@@ -12,11 +12,20 @@ export default function TopNav() {
   const [me, setMe] = useState<Me | null>(null);
   const [checked, setChecked] = useState(false);
 
+  // docs/2026-08-14-employee-score-dashboard/spec.md：/board 是免登入的公開頁面，
+  // 訪客點內部導覽連結也只會被彈回 /login，顯示這些連結沒有意義；連帶省下對
+  // /api/auth/me 的無意義呼叫（plan.md T-3 技術決策）。
   useEffect(() => {
-    fetch("/api/auth/me")
-      .then((res) => (res.ok ? res.json() : null))
-      .then(setMe)
-      .finally(() => setChecked(true));
+    async function checkAuth() {
+      if (pathname === "/board") {
+        setChecked(true);
+        return;
+      }
+      const res = await fetch("/api/auth/me");
+      setMe(res.ok ? await res.json() : null);
+      setChecked(true);
+    }
+    checkAuth();
   }, [pathname]);
 
   async function handleLogout() {
@@ -25,7 +34,7 @@ export default function TopNav() {
     router.refresh();
   }
 
-  if (pathname === "/login") return null;
+  if (pathname === "/login" || pathname === "/board") return null;
   if (!checked) return null;
 
   return (

@@ -237,3 +237,88 @@ a.sidebar-nav-item.active {
   flex: 1;
   min-width: 0;
 }
+
+/* docs/2026-08-14-employee-score-dashboard：免登入積分排行榜（/board）的
+   彈窗樣式——寬螢幕置中對話框、窄螢幕底部操作表共用同一個 backdrop。 */
+.month-select {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+
+.month-select input {
+  border: none;
+  padding: 0;
+}
+
+.board-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.board-dialog {
+  background: var(--background);
+  color: var(--foreground);
+  width: 100%;
+  max-width: 420px;
+  max-height: 80vh;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.board-sheet {
+  background: var(--background);
+  color: var(--foreground);
+  width: 100%;
+  max-height: 80vh;
+  border-radius: 16px 16px 0 0;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.board-sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: #d0d0d0;
+  margin: 10px auto 4px;
+  flex-shrink: 0;
+}
+
+.board-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e1e0d9;
+  flex-shrink: 0;
+}
+
+.board-modal-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.board-modal-close {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.board-modal-body {
+  overflow-y: auto;
+  padding: 16px;
+}

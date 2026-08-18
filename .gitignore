@@ -50,6 +50,16 @@ next-env.d.ts
 /prisma/test.db
 /prisma/test.db-journal
 
+# sqlite e2e database (rebuilt from scratch by e2e/global-setup.ts on every `npm run test:e2e`)
+/prisma/e2e.db
+/prisma/e2e.db-journal
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
 # third-party agent skill docs auto-installed by `prisma init` (regenerate via prisma CLI)
 /.claude/skills
 /.agents
